@@ -79,6 +79,7 @@ dependencies {
     implementation(libs.animation)
     implementation(libs.androidx.compose.foundation.layout)
     implementation(libs.androidx.compose.ui)
+    implementation(libs.androidx.compose.material3)
     ksp(libs.hilt.android.compiler)
     implementation(libs.androidx.material.icons.extended)
 
