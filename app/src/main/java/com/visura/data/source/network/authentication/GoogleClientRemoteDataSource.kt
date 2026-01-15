@@ -1,4 +1,4 @@
-package com.visura.data.datasource.authentication
+package com.visura.data.source.network.authentication
 
 import android.content.Context
 import androidx.credentials.ClearCredentialStateRequest
@@ -10,43 +10,37 @@ import androidx.credentials.GetCredentialResponse
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
 import androidx.credentials.exceptions.NoCredentialException
-import com.visura.domain.exceptions.authentication.AuthenticationException
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthException
+import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.GoogleAuthProvider
+import com.google.firebase.FirebaseNetworkException
+import com.visura.domain.exceptions.authentication.AuthenticationException
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
 class GoogleClientRemoteDataSource @Inject constructor(
     @ApplicationContext private val context: Context,
+    private val firebaseAuth: FirebaseAuth
 ) {
-    private val firebaseAuth: FirebaseAuth = FirebaseAuth.getInstance()
-    private val credentialManager: CredentialManager = CredentialManager.Companion.create(context)
+    private val credentialManager: CredentialManager = CredentialManager.create(context)
     private val webClientId: String = "853549966921-g1n0kcgbmmsnnltrr9c15gvme5mr90u0.apps.googleusercontent.com"
+
     suspend fun signInWithGoogle() {
         try {
             val credential = requestCredential(filterByAuthorizedAccounts = true, autoSelectEnabled = true)
             authenticateWithFirebase(credential)
-        } catch (e: NoCredentialException) {
+        } catch (_: AuthenticationException.NoAccountFound) {
             signUpWithGoogle()
-        } catch (e: AuthenticationException) {
-            throw e
-        } catch (e: Exception) {
-            throw AuthenticationException.GoogleSignInFailed(e)
         }
     }
 
     suspend fun signUpWithGoogle() {
-        try {
-            val credential = requestCredential(filterByAuthorizedAccounts = false, autoSelectEnabled = false)
-            authenticateWithFirebase(credential)
-        } catch (e: AuthenticationException) {
-            throw e
-        } catch (e: Exception) {
-            throw AuthenticationException.GoogleSignUpFailed(e)
-        }
+        val credential = requestCredential(filterByAuthorizedAccounts = false, autoSelectEnabled = false)
+        authenticateWithFirebase(credential)
     }
 
     suspend fun signOut() {
@@ -64,9 +58,9 @@ class GoogleClientRemoteDataSource @Inject constructor(
             val response = getCredentialFromManager(request)
             response.credential
         } catch (e: GetCredentialCancellationException) {
-            throw AuthenticationException.UserCancelled()
-        } catch (e: NoCredentialException) {
-            throw AuthenticationException.GoogleNoAccountFound()
+            throw AuthenticationException.UserCancelled(cause = e)
+        } catch (_: NoCredentialException) {
+            throw AuthenticationException.NoAccountFound(provider = "Google")
         } catch (e: GetCredentialException) {
             throw AuthenticationException.NetworkError(cause = e)
         }
@@ -100,22 +94,38 @@ class GoogleClientRemoteDataSource @Inject constructor(
     }
 
     private fun validateCredential(credential: Credential) {
-        val isValid =
-            credential is CustomCredential && credential.type == GoogleIdTokenCredential.Companion.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
+        val isValid = credential is CustomCredential &&
+                credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
+
         if (!isValid) {
-            throw AuthenticationException.GoogleInvalidCredential()
+            throw AuthenticationException.InvalidCredential()
         }
     }
 
     private fun extractIdToken(credential: Credential): String {
-        val googleIdTokenCredential =
-            GoogleIdTokenCredential.Companion.createFrom((credential as CustomCredential).data)
-        return googleIdTokenCredential.idToken
+        return try {
+            val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(
+                (credential as CustomCredential).data
+            )
+            googleIdTokenCredential.idToken
+        } catch (e: Exception) {
+            throw AuthenticationException.InvalidCredential(cause = e)
+        }
     }
 
     private suspend fun signInWithFirebase(idToken: String) {
-        val authCredential = GoogleAuthProvider.getCredential(idToken, null)
-        firebaseAuth.signInWithCredential(authCredential).await()
+        try {
+            val authCredential = GoogleAuthProvider.getCredential(idToken, null)
+            firebaseAuth.signInWithCredential(authCredential).await()
+        } catch (e: FirebaseAuthUserCollisionException) {
+            throw AuthenticationException.EmailAlreadyInUse(cause = e)
+        } catch (e: FirebaseNetworkException) {
+            throw AuthenticationException.NetworkError(cause = e)
+        } catch (e: FirebaseAuthException) {
+            throw AuthenticationException.UnknownAuthError(cause = e)
+        } catch (e: Exception) {
+            throw AuthenticationException.SocialAuthenticationFailed(provider = "Google", cause = e)
+        }
     }
 
     private suspend fun clearCredentialState() {

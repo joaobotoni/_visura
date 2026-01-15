@@ -1,14 +1,23 @@
 package com.visura.domain.exceptions.property
 
-sealed class PropertyException(message: String, cause: Throwable? = null) :
-    Exception(message, cause) {
+sealed class PropertyException(
+    message: String,
+    cause: Throwable? = null
+) : Exception(message, cause) {
+    class ValidationError(
+        message: String?,
+        cause: Throwable? = null
+    ) : PropertyException(message as String, cause)
 
+    class PropertyTypeRequired(
+        cause: Throwable? = null
+    ) : PropertyException("O tipo de propriedade é obrigatório", cause)
 
-    class IsBlankPropertyException(cause: Throwable? = null) :
-        PropertyException("Por favor, selecione o tipo de imóvel", cause)
+    class CategoryRequired(
+        cause: Throwable? = null
+    ) : PropertyException("A categoria da propriedade é obrigatória", cause)
 
-    class IsBlankCategoryPropertyException(cause: Throwable? = null) :
-        PropertyException("Por favor, selecione a categoria de residência", cause)
-
-
+    class UnexpectedError(
+        cause: Throwable
+    ) : PropertyException("Ocorreu um erro inesperado", cause)
 }

@@ -49,8 +49,8 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.visura.R
-import com.visura.domain.model.authentication.Email
-import com.visura.domain.model.authentication.Password
+import com.visura.domain.vo.authentication.Email
+import com.visura.domain.vo.authentication.Password
 import com.visura.ui.presenter.elements.button.StandardButton
 import com.visura.ui.presenter.elements.button.StandardOutlinedButton
 import com.visura.ui.presenter.elements.button.StandardTextButton
@@ -72,16 +72,16 @@ fun SignInScreen(
     var snackbarType by remember { mutableStateOf(SnackbarType.DEFAULT) }
 
     LaunchedEffect(Unit) {
-        viewModel.event.collect{ event ->
-            
+        viewModel.event.collect { event ->
+
             snackbarType = when (event) {
                 is SignInEvent.Success -> SnackbarType.SUCCESS
                 is SignInEvent.Error -> SnackbarType.ERROR
             }
 
             val message = when (event) {
-                is SignInEvent.Success -> event.message
-                is SignInEvent.Error -> event.message
+                is SignInEvent.Success -> "Login realizado com sucesso!"
+                is SignInEvent.Error -> event.exception.message ?: "Erro desconhecido ao realizar login."
             }
 
             snackbarHostState.showSnackbar(
@@ -90,7 +90,6 @@ fun SignInScreen(
             )
         }
     }
-
 
     SignInScreenContent(
         state = state,

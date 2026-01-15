@@ -1,7 +1,7 @@
 package com.visura.ui.presenter.screens
 
 import android.Manifest
-import android.location.Address
+import com.visura.domain.vo.location.Address
 import androidx.annotation.RequiresPermission
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -90,10 +90,10 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import com.visura.R
-import com.visura.domain.model.property.Property
-import com.visura.domain.model.property.PropertyCategory
-import com.visura.domain.model.property.PropertyCategoryType
-import com.visura.domain.model.property.PropertyType
+import com.visura.domain.vo.property.Property
+import com.visura.domain.vo.property.PropertyCategory
+import com.visura.domain.vo.property.PropertyCategoryType
+import com.visura.domain.vo.property.PropertyType
 import com.visura.ui.presenter.elements.button.StandardTextButton
 import com.visura.ui.presenter.elements.card.StandardCard
 import com.visura.ui.viewmodels.RegisterState
@@ -122,12 +122,12 @@ fun Register(
         floatingActionButton = {
             EditLocation(
                 visible = state.selectedAddress != null,
-                onClick = { showLocationSheet = true }
+                onClick = { showLocationSheet = true}
             )
         },
         bottomBar = {
             SendButton(
-                visible = state.isFormComplete,
+                visible = with(state) { selectedPropertyCategory != null && selectedProperty != null && selectedAddress != null },
                 onClick = { viewModel.validateAndFinish() }
             )
         }
@@ -337,7 +337,7 @@ private fun PropertyTypeCard(
 
             options.forEach { property ->
                 SelectableOption(
-                    text = property.type.displayName,
+                    text = property.value.displayName,
                     isSelected = selected == property,
                     onClick = { onSelect(property) }
                 )
@@ -467,7 +467,7 @@ private fun CategoryOption(
         label = "category_background"
     )
 
-    val icon = when (category.type) {
+    val icon = when (category.value) {
         PropertyCategoryType.HOME -> Icons.Outlined.Home
         PropertyCategoryType.APARTMENT -> Icons.Outlined.Apartment
     }
@@ -507,7 +507,7 @@ private fun CategoryOption(
             )
 
             Text(
-                text = category.type.displayName,
+                text = category.value.displayName,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                 color = if (isSelected) {
@@ -691,7 +691,7 @@ private fun SelectedAddressCard(
                 Spacer(modifier = Modifier.height(2.dp))
 
                 Text(
-                    text = formatAddressPrimary(address),
+                    text = formatPrimary(address),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 2,
@@ -1038,7 +1038,7 @@ private fun AddressResultItem(
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text(
-                    text = formatAddressPrimary(address),
+                    text = formatPrimary(address),
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Medium,
                     maxLines = 1,
@@ -1047,7 +1047,7 @@ private fun AddressResultItem(
                 )
 
                 Text(
-                    text = formatAddressSecondary(address),
+                    text = formatSecondary(address),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -1235,24 +1235,19 @@ private fun LocationPermissionDialog(
     )
 }
 
-private fun formatAddressPrimary(address: Address): String {
-    val street = address.thoroughfare
-    val neighborhood = address.subLocality
-
-    return when {
-        street != null && neighborhood != null -> "$street, $neighborhood"
-        street != null -> street
-        neighborhood != null -> neighborhood
-        else -> address.locality ?: "Endereço"
-    }
+fun formatPrimary(address: Address): String = when {
+    address.street.isNotBlank() && address.neighborhood.isNotBlank() ->
+        "${address.street}, ${address.neighborhood}"
+    address.street.isNotBlank() -> address.street
+    address.neighborhood.isNotBlank() -> address.neighborhood
+    address.city.isNotBlank() -> address.city
+    else -> "Endereço"
 }
 
-private fun formatAddressSecondary(address: Address): String {
-    val parts = buildList {
-        address.subThoroughfare?.let { add(it) }
-        address.locality?.let { add(it) }
-        address.adminArea?.let { add(it) }
-        address.postalCode?.let { add("CEP $it") }
-    }
-    return parts.joinToString(", ")
-}
+fun formatSecondary(address: Address): String = buildList {
+    if (address.number.isNotBlank()) add(address.number)
+    if (address.complement.isNotBlank()) add(address.complement)
+    if (address.city.isNotBlank()) add(address.city)
+    if (address.state.isNotBlank()) add(address.state)
+    if (address.postalCode.isNotBlank()) add("CEP ${address.postalCode}")
+}.joinToString(", ")

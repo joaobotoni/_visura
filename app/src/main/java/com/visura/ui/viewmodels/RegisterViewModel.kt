@@ -1,21 +1,20 @@
 package com.visura.ui.viewmodels
 
 import android.Manifest
-import android.content.Context
-import android.location.Address
 import androidx.annotation.RequiresPermission
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.visura.R
-import com.visura.domain.model.property.PropertyCategory
-import com.visura.domain.model.property.Property
+import com.visura.domain.exceptions.location.LocationException
+import com.visura.domain.exceptions.property.PropertyException
+import com.visura.domain.vo.property.PropertyCategory
+import com.visura.domain.vo.property.Property
+import com.visura.domain.vo.location.Address
 import com.visura.domain.usecase.location.LocationUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -28,63 +27,24 @@ data class RegisterState(
     val searchQuery: String = "",
     val isSearching: Boolean = false,
     val isFetchingLocation: Boolean = false
-) {
-    val isFormComplete: Boolean
-        get() = selectedPropertyCategory != null &&
-                selectedProperty != null &&
-                selectedAddress != null
-}
+)
 
 sealed interface RegisterEvent {
-    data class Success(val message: String) : RegisterEvent
-    data class Error(val message: String) : RegisterEvent
     data object ValidationSuccess : RegisterEvent
-}
-
-class RegisterValidator @Inject constructor() {
-
-    fun validate(state: RegisterState): Result<Triple<PropertyCategory, Property, Address>> = runCatching {
-        val property = validatePropertyCategory(state.selectedPropertyCategory)
-        val residence = validateProperty(state.selectedProperty)
-        val address = validateAddress(state.selectedAddress)
-        Triple(property, residence, address)
-    }
-
-    private fun validatePropertyCategory(selectedPropertyCategory: PropertyCategory?): PropertyCategory {
-        return PropertyCategory.access(selectedPropertyCategory?.type).getOrThrow()
-    }
-
-    private fun validateProperty(selectedProperty: Property?): Property {
-        return Property.access(selectedProperty?.type).getOrThrow()
-    }
-
-    private fun validateAddress(selectedAddress: Address?): Address {
-        return selectedAddress ?: throw IllegalArgumentException("Endereço não selecionado")
-    }
-}
-
-class RegisterEventMapper @Inject constructor(
-    @ApplicationContext private val context: Context
-) {
-    fun toSuccess(): RegisterEvent.Success =
-        RegisterEvent.Success(context.getString(R.string.success_message_registration))
-
-    fun toError(exception: Throwable): RegisterEvent.Error =
-        RegisterEvent.Error(exception.message ?: context.getString(R.string.unknown_error_message))
+    data class LocationError(val exception: LocationException) : RegisterEvent
+    data class PropertyError(val exception: PropertyException) : RegisterEvent
 }
 
 @HiltViewModel
 class RegisterViewModel @Inject constructor(
-    private val locationUseCase: LocationUseCase,
-    private val validator: RegisterValidator,
-    private val mapper: RegisterEventMapper
+    private val locationUseCase: LocationUseCase
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(RegisterState())
     val state = _state.asStateFlow()
 
-    private val _event = MutableSharedFlow<RegisterEvent>()
-    val event = _event.asSharedFlow()
+    private val _event = Channel<RegisterEvent>()
+    val event = _event.receiveAsFlow()
 
     fun setPropertyCategory(propertyCategory: PropertyCategory?) {
         _state.update { it.copy(selectedPropertyCategory = propertyCategory) }
@@ -115,9 +75,9 @@ class RegisterViewModel @Inject constructor(
     )
     fun fetchCurrentAddress() {
         viewModelScope.launch {
+            _state.update { it.copy(isFetchingLocation = true) }
             try {
-                _state.update { it.copy(isFetchingLocation = true) }
-                currentLocationFetch()
+                performCurrentLocationFetch()
             } finally {
                 _state.update { it.copy(isFetchingLocation = false) }
             }
@@ -128,54 +88,79 @@ class RegisterViewModel @Inject constructor(
         if (query.length < 3) return
 
         viewModelScope.launch {
+            _state.update { it.copy(isSearching = true) }
             try {
-                _state.update { it.copy(isSearching = true) }
-                addressSearch(query)
+                performAddressSearch(query)
             } finally {
                 _state.update { it.copy(isSearching = false) }
             }
         }
     }
+
     fun validateAndFinish() {
-        viewModelScope.launch {
-            send(performValidation())
+        if (state.value.run { selectedPropertyCategory != null && selectedProperty != null && selectedAddress != null }) {
+            viewModelScope.launch {
+                _event.send(performValidation())
+            }
         }
     }
+
     @RequiresPermission(
         allOf = [
             Manifest.permission.ACCESS_FINE_LOCATION,
             Manifest.permission.ACCESS_COARSE_LOCATION
         ]
     )
-    private suspend fun currentLocationFetch() {
+    private suspend fun performCurrentLocationFetch() {
         runCatching {
             locationUseCase.fetchAddress()
         }.fold(
             onSuccess = { addresses ->
                 _state.update { it.copy(addresses = addresses.toSet()) }
             },
-            onFailure = { send(mapper.toError(it)) }
+            onFailure = { exception ->
+                _event.send(RegisterEvent.LocationError(exception.toLocationException()))
+            }
         )
     }
 
-    private suspend fun addressSearch(query: String) {
+    private suspend fun performAddressSearch(query: String) {
         runCatching {
             locationUseCase.fetchAddressByName(query)
         }.fold(
             onSuccess = { addresses ->
                 _state.update { it.copy(addresses = addresses.toSet()) }
             },
-            onFailure = { send(mapper.toError(it)) }
+            onFailure = { exception ->
+                _event.send(RegisterEvent.LocationError(exception.toLocationException()))
+            }
         )
     }
 
-    private fun performValidation(): RegisterEvent =
-        validator.validate(_state.value).fold(
+    private fun performValidation(): RegisterEvent {
+        return validateInputs().fold(
             onSuccess = { RegisterEvent.ValidationSuccess },
-            onFailure = { mapper.toError(it) }
+            onFailure = { RegisterEvent.PropertyError(it.toPropertyException()) }
         )
+    }
 
-    private suspend fun send(event: RegisterEvent) {
-        _event.emit(event)
+    private fun validateInputs(): Result<Triple<PropertyCategory, Property, Address>> =
+        runCatching {
+            val category = PropertyCategory.of(_state.value.selectedPropertyCategory?.value).getOrThrow()
+            val property = Property.of(_state.value.selectedProperty?.value).getOrThrow()
+            val address = _state.value.selectedAddress
+                ?: throw LocationException.ValidationError("Endereço não selecionado")
+            Triple(category, property, address)
+        }
+
+    private fun Throwable.toLocationException(): LocationException = when (this) {
+        is LocationException -> this
+        else -> LocationException.NetworkError(cause = this)
+    }
+
+    private fun Throwable.toPropertyException(): PropertyException = when (this) {
+        is PropertyException -> this
+        is LocationException -> PropertyException.ValidationError(this.message)
+        else -> PropertyException.UnexpectedError(this)
     }
 }

@@ -1,4 +1,4 @@
-package com.visura.domain.model.authentication
+package com.visura.domain.vo.authentication
 
 import com.visura.domain.exceptions.authentication.AuthenticationException
 

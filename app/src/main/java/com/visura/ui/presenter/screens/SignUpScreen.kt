@@ -49,8 +49,8 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.visura.R
-import com.visura.domain.model.authentication.Email
-import com.visura.domain.model.authentication.Password
+import com.visura.domain.vo.authentication.Email
+import com.visura.domain.vo.authentication.Password
 import com.visura.ui.presenter.elements.button.StandardButton
 import com.visura.ui.presenter.elements.button.StandardOutlinedButton
 import com.visura.ui.presenter.elements.button.StandardTextButton
@@ -81,8 +81,8 @@ fun SignUpScreen(
             }
 
             val message = when (event) {
-                is SignUpEvent.Success -> event.message
-                is SignUpEvent.Error -> event.message
+                is SignUpEvent.Success -> "Cadastro realizado com sucesso!"
+                is SignUpEvent.Error -> event.exception.message ?: "Erro desconhecido ao realizar cadastro."
             }
 
             snackbarHostState.showSnackbar(
@@ -106,7 +106,6 @@ fun SignUpScreen(
         onSignInClick = navSignIn
     )
 }
-
 @Composable
 private fun SignUpScreenContent(
     state: SignUpState,

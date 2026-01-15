@@ -1,57 +1,61 @@
 package com.visura.domain.exceptions.authentication
 
-enum class AuthError {
-    VALIDATION,
-    AUTHENTICATION,
-    NETWORK,
-    CANCELLED,
-    INVALID_CREDENTIAL,
-    NO_ACCOUNT_FOUND,
-    EMAIL_ALREADY_IN_USE,
-    TOO_MANY_REQUESTS,
-    USER_DISABLED
-}
-
 sealed class AuthenticationException(
-    val error: AuthError,
     message: String,
     cause: Throwable? = null
 ) : Exception(message, cause) {
 
-    class ValidationError(message: String) :
-        AuthenticationException(AuthError.VALIDATION, message)
+    class ValidationError(
+        message: String?,
+        cause: Throwable? = null
+    ) : AuthenticationException(message as String, cause)
 
     class NetworkError(
-        message: String = "Erro de conexão. Verifique sua internet",
         cause: Throwable? = null
-    ) :
-        AuthenticationException(AuthError.NETWORK, message, cause)
+    ) : AuthenticationException("Ocorreu um erro de rede", cause)
 
-    class UserCancelled(message: String = "Operação cancelada pelo usuário") :
-        AuthenticationException(AuthError.CANCELLED, message)
+    class InvalidCredential(
+        cause: Throwable? = null
+    ) : AuthenticationException("Credenciais inválidas", cause)
 
-    class GoogleSignInFailed(cause: Throwable) :
-        AuthenticationException(AuthError.AUTHENTICATION, "Falha ao fazer login com Google", cause)
+    class UserNotFound(
+        cause: Throwable? = null
+    ) : AuthenticationException("Usuário não encontrado", cause)
 
-    class GoogleSignUpFailed(cause: Throwable) :
-        AuthenticationException(AuthError.AUTHENTICATION, "Falha ao criar conta com Google", cause)
+    class EmailAlreadyInUse(
+        cause: Throwable? = null
+    ) : AuthenticationException("E-mail já registrado", cause)
 
-    class GoogleNoAccountFound :
-        AuthenticationException(AuthError.NO_ACCOUNT_FOUND, "Nenhuma conta Google encontrada")
+    class WeakPassword(
+        cause: Throwable? = null
+    ) : AuthenticationException("A senha não atende aos requisitos", cause)
 
-    class InvalidCredential :
-        AuthenticationException(AuthError.INVALID_CREDENTIAL, "Email ou Senha inválida")
+    class TooManyRequests(
+        cause: Throwable? = null
+    ) : AuthenticationException("Muitas tentativas de autenticação", cause)
 
-    class GoogleInvalidCredential :
-        AuthenticationException(AuthError.INVALID_CREDENTIAL, "Credencial Google invalida")
+    class UserDisabled(
+        cause: Throwable? = null
+    ) : AuthenticationException("A conta de usuário está desativada", cause)
 
-    class EmailAlreadyInUse(message: String = "Este email já está em uso") :
-        AuthenticationException(AuthError.EMAIL_ALREADY_IN_USE, message)
+    class SocialAuthenticationFailed(
+        val provider: String,
+        cause: Throwable? = null
+    ) : AuthenticationException("Falha na autenticação social: $provider", cause)
 
-    class TooManyRequests(message: String = "Muitas tentativas. Tente novamente mais tarde") :
-        AuthenticationException(AuthError.TOO_MANY_REQUESTS, message)
+    class NoAccountFound(
+        val provider: String
+    ) : AuthenticationException("Nenhuma conta encontrada para o provedor: $provider")
 
-    class UserDisabled(message: String = "Esta conta foi desabilitada") :
-        AuthenticationException(AuthError.USER_DISABLED, message)
+    class UserCancelled(
+        cause: Throwable? = null
+    ) : AuthenticationException("Operação cancelada pelo usuário", cause)
 
+    class UnknownAuthError(
+        cause: Throwable
+    ) : AuthenticationException("Erro de autenticação desconhecido", cause)
+
+    class UnexpectedError(
+        cause: Throwable
+    ) : AuthenticationException("Ocorreu um erro inesperado", cause)
 }
