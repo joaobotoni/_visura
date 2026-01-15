@@ -1246,8 +1246,7 @@ fun formatPrimary(address: Address): String = when {
 
 fun formatSecondary(address: Address): String = buildList {
     if (address.number.isNotBlank()) add(address.number)
-    if (address.complement.isNotBlank()) add(address.complement)
+    if (address.postalCode.isNotBlank()) add("CEP ${address.postalCode}")
     if (address.city.isNotBlank()) add(address.city)
     if (address.state.isNotBlank()) add(address.state)
-    if (address.postalCode.isNotBlank()) add("CEP ${address.postalCode}")
 }.joinToString(", ")

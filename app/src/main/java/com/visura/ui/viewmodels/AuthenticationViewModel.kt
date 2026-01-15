@@ -31,7 +31,7 @@ class AuthenticationViewModel @Inject constructor(
     private val auth: FirebaseAuth
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow<AuthenticationState>(
+    private val _state = MutableStateFlow(
         auth.currentUser?.let { AuthenticationState.Authenticated(it) }
             ?: AuthenticationState.Unauthenticated
     )
