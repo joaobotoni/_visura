@@ -1,8 +1,8 @@
-package com.visura.data.datasource.authentication
+package com.visura.data.source.network.authentication
 
 import com.visura.domain.exceptions.authentication.AuthenticationException
-import com.visura.domain.model.authentication.Email
-import com.visura.domain.model.authentication.Password
+import com.visura.domain.vo.authentication.Email
+import com.visura.domain.vo.authentication.Password
 import com.google.firebase.Firebase
 import com.google.firebase.FirebaseNetworkException
 import com.google.firebase.auth.AuthResult
@@ -14,7 +14,6 @@ import javax.inject.Inject
 
 class FireBaseClientRemoteDataSource @Inject constructor() {
     private val auth: FirebaseAuth = Firebase.auth
-
     suspend fun signUp(email: Email, password: Password): AuthResult {
         return try {
             auth.createUserWithEmailAndPassword(email.value, password.value).await()

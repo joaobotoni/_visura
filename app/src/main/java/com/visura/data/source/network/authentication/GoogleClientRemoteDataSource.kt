@@ -1,4 +1,4 @@
-package com.visura.data.datasource.authentication
+package com.visura.data.source.network.authentication
 
 import android.content.Context
 import androidx.credentials.ClearCredentialStateRequest
@@ -20,7 +20,7 @@ import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
 class GoogleClientRemoteDataSource @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
 ) {
     private val firebaseAuth: FirebaseAuth = FirebaseAuth.getInstance()
     private val credentialManager: CredentialManager = CredentialManager.Companion.create(context)
@@ -101,7 +101,7 @@ class GoogleClientRemoteDataSource @Inject constructor(
 
     private fun validateCredential(credential: Credential) {
         val isValid =
-            credential is CustomCredential && credential.type == GoogleIdTokenCredential.Companion.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
+            credential is CustomCredential && credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
         if (!isValid) {
             throw AuthenticationException.GoogleInvalidCredential()
         }
@@ -109,7 +109,7 @@ class GoogleClientRemoteDataSource @Inject constructor(
 
     private fun extractIdToken(credential: Credential): String {
         val googleIdTokenCredential =
-            GoogleIdTokenCredential.Companion.createFrom((credential as CustomCredential).data)
+            GoogleIdTokenCredential.createFrom((credential as CustomCredential).data)
         return googleIdTokenCredential.idToken
     }
 

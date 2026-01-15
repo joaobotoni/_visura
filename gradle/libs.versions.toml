@@ -1,6 +1,6 @@
 [versions]
 accompanistPermissions = "0.37.3"
-agp = "8.13.0"
+agp = "8.13.2"
 animation = "1.8.3"
 constraintlayoutCompose = "1.1.1"
 coreSplashscreen = "1.0.1"

@@ -1,4 +1,4 @@
-package com.visura.data.datasource.location
+package com.visura.data.source.network.location
 
 import android.Manifest
 import android.content.Context
@@ -18,7 +18,7 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 
 class LocationLocalDataSource @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
 ) {
     private val fusedLocationClient: FusedLocationProviderClient by lazy {
         LocationServices.getFusedLocationProviderClient(context)
@@ -26,10 +26,6 @@ class LocationLocalDataSource @Inject constructor(
     private val geocoder: Geocoder by lazy {
         Geocoder(context, Locale.getDefault())
     }
-
-    @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
-    private suspend fun fetchLastLocation(): Location? =
-        fusedLocationClient.lastLocation.await()
 
     @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
     private suspend fun fetchCurrentLastLocation(): Location? =

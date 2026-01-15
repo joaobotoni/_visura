@@ -6,8 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.visura.R
 import com.visura.domain.exceptions.authentication.AuthError
 import com.visura.domain.exceptions.authentication.AuthenticationException
-import com.visura.domain.model.authentication.Email
-import com.visura.domain.model.authentication.Password
+import com.visura.domain.vo.authentication.Password
 import com.visura.domain.usecase.authentication.AuthenticationUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -18,7 +17,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-
+import com.visura.domain.vo.authentication.Email
 data class SignInState(
     val email: Email = Email(""),
     val password: Password = Password(""),
@@ -38,14 +37,14 @@ class SignInValidator @Inject constructor() {
     }
 
     private fun checkEmail(email: Email): Email =
-        Email.access(email.value).getOrThrow()
+        Email.of(email.value).getOrThrow()
 
     private fun checkPassword(password: Password): Password =
         Password.access(password.value).getOrThrow()
 }
 
 class SignInEventMapper @Inject constructor(
-    @ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context
 ) {
 
     fun toSuccess(): SignInEvent.Success =

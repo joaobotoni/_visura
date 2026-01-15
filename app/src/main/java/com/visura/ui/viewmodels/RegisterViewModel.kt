@@ -1,12 +1,13 @@
 package com.visura.ui.viewmodels
 
 import android.Manifest
-import android.location.Address
+
 import androidx.annotation.RequiresPermission
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.visura.domain.exceptions.location.LocationException
 import com.visura.domain.usecase.location.LocationUseCase
+import com.visura.domain.vo.location.Address
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
