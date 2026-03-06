@@ -1,6 +1,6 @@
 
 // app/build.gradle.kts
-
+import java.util.Properties
 plugins {
 
     alias(libs.plugins.android.application)
@@ -13,10 +13,13 @@ plugins {
     kotlin("plugin.serialization") version "2.0.21"
 
 }
+val localProps = Properties()
+localProps.load(rootProject.file("local.properties").inputStream())
 
 android {
     namespace = "com.visura"
     compileSdk = 36
+
 
     defaultConfig {
         applicationId = "com.visura"
@@ -26,6 +29,11 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+
+
+        buildConfigField("String", "SUPABASE_URL", "\"${localProps["SUPABASE_URL"]}\"")
+        buildConfigField("String", "SUPABASE_KEY", "\"${localProps["SUPABASE_KEY"]}\"")
     }
 
     buildTypes {
@@ -46,6 +54,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -102,4 +111,11 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.gson)
     implementation(libs.kotlinx.coroutines.play.services)
+
+    // Supabase
+    implementation(platform(libs.supabase.bom))
+    implementation(libs.supabase.postgrest)
+    implementation(libs.supabase.auth)
+    implementation(libs.supabase.storage)
+    implementation(libs.ktor.client.android)
 }

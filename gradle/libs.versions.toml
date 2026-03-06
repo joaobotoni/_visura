@@ -1,6 +1,6 @@
 [versions]
 accompanistPermissions = "0.37.3"
-agp = "8.13.0"
+agp = "8.7.3"
 animation = "1.8.3"
 constraintlayoutCompose = "1.1.1"
 coreSplashscreen = "1.0.1"
@@ -33,6 +33,8 @@ playServicesNearby = "19.3.0"
 foundation = "1.9.3"
 playServicesLocation = "21.3.0"
 runtimeSaveable = "1.9.4"
+supabase = "2.5.4"
+ktor = "2.3.12"
 
 [libraries]
 accompanist-navigation-animation = { module = "com.google.accompanist:accompanist-navigation-animation" }
@@ -79,7 +81,11 @@ play-services-nearby = { group = "com.google.android.gms", name = "play-services
 androidx-compose-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "foundation" }
 play-services-location = { group = "com.google.android.gms", name = "play-services-location", version.ref = "playServicesLocation" }
 androidx-compose-runtime-saveable = { group = "androidx.compose.runtime", name = "runtime-saveable", version.ref = "runtimeSaveable" }
-
+supabase-bom = { group = "io.github.jan-tennermann", name = "supabase-kt-bom", version.ref = "supabase" }
+supabase-postgrest = { group = "io.github.jan-tennermann", name = "postgrest-kt" }
+supabase-auth = { group = "io.github.jan-tennermann", name = "auth-kt" }
+supabase-storage = { group = "io.github.jan-tennermann", name = "storage-kt" }
+ktor-client-android = { group = "io.ktor", name = "ktor-client-android", version.ref = "ktor" }
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
