@@ -98,6 +98,70 @@ import com.visura.ui.presenter.elements.button.StandardTextButton
 import com.visura.ui.presenter.elements.card.StandardCard
 import com.visura.ui.viewmodels.RegisterState
 import com.visura.ui.viewmodels.RegisterViewModel
+import com.google.accompanist.permissions.rememberPermissionState
+import com.google.accompanist.permissions.isGranted
+import com.google.accompanist.permissions.shouldShowRationale
+
+//Adicionado os ultimos 3 import acima.
+//Adicionado
+@OptIn(ExperimentalPermissionsApi::class)
+@Composable
+private fun CameraPermissionHandler(
+    onGranted: () -> Unit
+) {
+    val permissionState = rememberPermissionState(
+        permission = Manifest.permission.CAMERA
+    )
+
+    LaunchedEffect(permissionState.status.isGranted) {
+        if (permissionState.status.isGranted) {
+            onGranted()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        if (!permissionState.status.isGranted) {
+            permissionState.launchPermissionRequest()
+        }
+    }
+
+    if (permissionState.status.shouldShowRationale) {
+        CameraPermissionDialog(
+            onConfirm = { permissionState.launchPermissionRequest() }
+        )
+    }
+}
+
+@Composable
+private fun CameraPermissionDialog(
+    onConfirm: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onConfirm,
+        title = {
+            Text(
+                text = "Permissão da Câmera",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Text(
+                text = "A câmera é necessária para fotografar o imóvel durante a vistoria.",
+                style = MaterialTheme.typography.bodyMedium
+            )
+        },
+        confirmButton = {
+            StandardTextButton(
+                text = "Permitir",
+                onClick = onConfirm,
+                enabled = true
+            )
+        }
+    )
+}
+
+
 
 @RequiresPermission(
     allOf = [
@@ -116,6 +180,10 @@ fun Register(
 
     LocationPermissionHandler(
         onGranted = { viewModel.fetchCurrentAddress() }
+    )
+    // ADICIONADO
+    CameraPermissionHandler(
+        onGranted = { /* viewModel.onCameraGranted() — use quando implementar a câmera */ }
     )
 
     Scaffold(
