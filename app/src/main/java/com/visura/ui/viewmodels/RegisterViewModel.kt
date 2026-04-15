@@ -6,9 +6,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.visura.domain.exceptions.location.LocationException
 import com.visura.domain.exceptions.property.PropertyException
-import com.visura.domain.vo.property.PropertyCategory
-import com.visura.domain.vo.property.Property
 import com.visura.domain.vo.location.Address
+import com.visura.domain.vo.property.PropertyCategory
+import com.visura.domain.vo.property.PropertyType
 import com.visura.domain.usecase.location.LocationUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
@@ -23,7 +23,7 @@ data class RegisterState(
     val addresses: Set<Address> = emptySet(),
     val selectedAddress: Address? = null,
     val selectedPropertyCategory: PropertyCategory? = null,
-    val selectedProperty: Property? = null,
+    val selectedPropertyType: PropertyType? = null,
     val searchQuery: String = "",
     val isSearching: Boolean = false,
     val isFetchingLocation: Boolean = false
@@ -50,8 +50,8 @@ class RegisterViewModel @Inject constructor(
         _state.update { it.copy(selectedPropertyCategory = propertyCategory) }
     }
 
-    fun setProperty(property: Property?) {
-        _state.update { it.copy(selectedProperty = property) }
+    fun setPropertyType(propertyType: PropertyType?) {
+        _state.update { it.copy(selectedPropertyType = propertyType) }
     }
 
     fun setAddress(address: Address?) {
@@ -86,7 +86,6 @@ class RegisterViewModel @Inject constructor(
 
     fun searchAddress(query: String) {
         if (query.length < 3) return
-
         viewModelScope.launch {
             _state.update { it.copy(isSearching = true) }
             try {
@@ -98,15 +97,13 @@ class RegisterViewModel @Inject constructor(
     }
 
     fun validateAndFinish() {
-        if (state.value.run { selectedPropertyCategory != null && selectedProperty != null && selectedAddress != null }) {
-            viewModelScope.launch {
-                _event.send(performValidation())
-            }
+        viewModelScope.launch {
+            _event.send(performValidation())
         }
     }
 
     @RequiresPermission(
-        allOf = [
+        anyOf = [
             Manifest.permission.ACCESS_FINE_LOCATION,
             Manifest.permission.ACCESS_COARSE_LOCATION
         ]
@@ -137,21 +134,20 @@ class RegisterViewModel @Inject constructor(
         )
     }
 
-    private fun performValidation(): RegisterEvent {
-        return validateInputs().fold(
+    private fun performValidation(): RegisterEvent =
+        validateInputs().fold(
             onSuccess = { RegisterEvent.ValidationSuccess },
             onFailure = { RegisterEvent.PropertyError(it.toPropertyException()) }
         )
-    }
 
-    private fun validateInputs(): Result<Triple<PropertyCategory, Property, Address>> =
-        runCatching {
-            val category = PropertyCategory.of(_state.value.selectedPropertyCategory?.value).getOrThrow()
-            val property = Property.of(_state.value.selectedProperty?.value).getOrThrow()
-            val address = _state.value.selectedAddress
-                ?: throw LocationException.ValidationError("Endereço não selecionado")
-            Triple(category, property, address)
-        }
+    private fun validateInputs(): Result<Unit> = runCatching {
+        _state.value.selectedPropertyCategory
+            ?: throw PropertyException.CategoryRequired()
+        _state.value.selectedPropertyType
+            ?: throw PropertyException.PropertyTypeRequired()
+        _state.value.selectedAddress
+            ?: throw LocationException.ValidationError("Endereço não selecionado")
+    }
 
     private fun Throwable.toLocationException(): LocationException = when (this) {
         is LocationException -> this

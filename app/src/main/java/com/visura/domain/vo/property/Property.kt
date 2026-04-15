@@ -1,20 +1,35 @@
 package com.visura.domain.vo.property
 
 import com.visura.domain.exceptions.property.PropertyException
+import com.visura.domain.vo.location.Address
+import java.util.UUID
+import java.time.Instant
 
-enum class PropertyType(val displayName: String) {
-    RESIDENTIAL("Residencial"),
-    NON_RESIDENTIAL("Não Residencial"),
-    COMMERCIAL("Comercial")
-}
-
-@JvmInline
-value class Property(val value: PropertyType) {
+data class Property(
+    val id: UUID,
+    val type: PropertyType,
+    val category: PropertyCategory,
+    val address: Address,
+    val created: Instant
+) {
     companion object {
-        fun of(value: PropertyType?): Result<Property> {
-            return when (value) {
-                null -> Result.failure(PropertyException.PropertyTypeRequired())
-                else -> Result.success(Property(value))
+        fun of(
+            type: PropertyType,
+            category: PropertyCategory,
+            address: Address,
+        ): Result<Property> {
+            return when {
+                type.displayName.isBlank() -> Result.failure(PropertyException.PropertyTypeRequired())
+                category.displayName.isBlank() -> Result.failure(PropertyException.CategoryRequired())
+                else -> Result.success(
+                    Property(
+                        id = UUID.randomUUID(),
+                        type = type,
+                        category = category,
+                        address = address,
+                        created = Instant.now()
+                    )
+                )
             }
         }
     }

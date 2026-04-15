@@ -90,21 +90,17 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import com.visura.R
-import com.visura.domain.vo.property.Property
 import com.visura.domain.vo.property.PropertyCategory
-import com.visura.domain.vo.property.PropertyCategoryType
 import com.visura.domain.vo.property.PropertyType
 import com.visura.ui.presenter.elements.button.StandardTextButton
 import com.visura.ui.presenter.elements.card.StandardCard
 import com.visura.ui.viewmodels.RegisterState
 import com.visura.ui.viewmodels.RegisterViewModel
 
-@RequiresPermission(
-    allOf = [
-        Manifest.permission.ACCESS_FINE_LOCATION,
-        Manifest.permission.ACCESS_COARSE_LOCATION
-    ]
-)
+@RequiresPermission(anyOf = [
+    Manifest.permission.ACCESS_FINE_LOCATION,
+    Manifest.permission.ACCESS_COARSE_LOCATION
+])
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Composable
 fun Register(
@@ -122,12 +118,12 @@ fun Register(
         floatingActionButton = {
             EditLocation(
                 visible = state.selectedAddress != null,
-                onClick = { showLocationSheet = true}
+                onClick = { showLocationSheet = true }
             )
         },
         bottomBar = {
             SendButton(
-                visible = with(state) { selectedPropertyCategory != null && selectedProperty != null && selectedAddress != null },
+                visible = with(state) { selectedPropertyCategory != null && selectedPropertyType != null && selectedAddress != null },
                 onClick = { viewModel.validateAndFinish() }
             )
         }
@@ -136,7 +132,7 @@ fun Register(
             RegisterContent(
                 state = state,
                 listState = listState,
-                onPropertySelected = viewModel::setProperty,
+                onPropertySelected = viewModel::setPropertyType,
                 onCategorySelected = viewModel::setPropertyCategory,
                 onAddressRemoved = { viewModel.setAddress(null) },
                 onLocationCardClicked = { showLocationSheet = true }
@@ -161,7 +157,7 @@ fun Register(
 private fun RegisterContent(
     state: RegisterState,
     listState: androidx.compose.foundation.lazy.LazyListState,
-    onPropertySelected: (Property) -> Unit,
+    onPropertySelected: (PropertyType) -> Unit,
     onCategorySelected: (PropertyCategory) -> Unit,
     onAddressRemoved: () -> Unit,
     onLocationCardClicked: () -> Unit
@@ -179,7 +175,7 @@ private fun RegisterContent(
 
         item {
             PropertyTypeCard(
-                selected = state.selectedProperty,
+                selected = state.selectedPropertyType,
                 onSelect = onPropertySelected
             )
         }
@@ -194,7 +190,7 @@ private fun RegisterContent(
         item {
             LocationSection(
                 address = state.selectedAddress,
-                canAddLocation = state.selectedProperty != null && state.selectedPropertyCategory != null,
+                canAddLocation = state.selectedPropertyType != null && state.selectedPropertyCategory != null,
                 onAddressRemoved = onAddressRemoved,
                 onLocationCardClicked = onLocationCardClicked
             )
@@ -295,7 +291,7 @@ private fun ProgressCard(currentStep: Int) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(8.dp)
-                    .clip(RoundedCornerShape(4.dp)),
+                    .clip(MaterialTheme.shapes.small),
                 color = MaterialTheme.colorScheme.primary,
                 trackColor = MaterialTheme.colorScheme.surfaceContainerHighest
             )
@@ -306,7 +302,7 @@ private fun ProgressCard(currentStep: Int) {
 @Composable
 private fun PercentageBadge(percentage: Int) {
     Surface(
-        shape = RoundedCornerShape(12.dp),
+        shape = MaterialTheme.shapes.small,
         color = MaterialTheme.colorScheme.primary
     ) {
         Text(
@@ -321,10 +317,10 @@ private fun PercentageBadge(percentage: Int) {
 
 @Composable
 private fun PropertyTypeCard(
-    selected: Property?,
-    onSelect: (Property) -> Unit
+    selected: PropertyType?,
+    onSelect: (PropertyType) -> Unit
 ) {
-    val options = PropertyType.entries.map { Property(it) }
+    val options = PropertyType.entries
 
     StandardCard {
         Column(modifier = Modifier.padding(24.dp)) {
@@ -332,14 +328,12 @@ private fun PropertyTypeCard(
                 icon = Icons.Outlined.Home,
                 title = "Tipo do Imóvel"
             )
-
             Spacer(modifier = Modifier.height(20.dp))
-
-            options.forEach { property ->
+            options.forEach { type ->
                 SelectableOption(
-                    text = property.value.displayName,
-                    isSelected = selected == property,
-                    onClick = { onSelect(property) }
+                    type = type,
+                    isSelected = selected == type,
+                    onClick = { onSelect(type) }
                 )
             }
         }
@@ -351,7 +345,7 @@ private fun PropertyCategoryCard(
     selected: PropertyCategory?,
     onSelect: (PropertyCategory) -> Unit
 ) {
-    val options = PropertyCategoryType.entries.map { PropertyCategory(it) }
+    val options = PropertyCategory.entries
 
     StandardCard {
         Column(modifier = Modifier.padding(24.dp)) {
@@ -400,7 +394,7 @@ private fun CardHeader(
 
 @Composable
 private fun SelectableOption(
-    text: String,
+    type: PropertyType,
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
@@ -418,7 +412,7 @@ private fun SelectableOption(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 6.dp)
-            .clip(RoundedCornerShape(16.dp))
+            .clip(MaterialTheme.shapes.large)
             .clickable(onClick = onClick),
         color = backgroundColor,
         tonalElevation = if (isSelected) 2.dp else 0.dp
@@ -438,7 +432,7 @@ private fun SelectableOption(
             )
 
             Text(
-                text = text,
+                text = type.displayName,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                 color = if (isSelected) {
@@ -467,16 +461,16 @@ private fun CategoryOption(
         label = "category_background"
     )
 
-    val icon = when (category.value) {
-        PropertyCategoryType.HOME -> Icons.Outlined.Home
-        PropertyCategoryType.APARTMENT -> Icons.Outlined.Apartment
+    val icon = when (category) {
+        PropertyCategory.HOME -> Icons.Outlined.Home
+        PropertyCategory.APARTMENT -> Icons.Outlined.Apartment
     }
 
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 6.dp)
-            .clip(RoundedCornerShape(16.dp))
+            .clip(MaterialTheme.shapes.large)
             .clickable(onClick = onClick),
         color = backgroundColor,
         tonalElevation = if (isSelected) 2.dp else 0.dp
@@ -507,7 +501,7 @@ private fun CategoryOption(
             )
 
             Text(
-                text = category.value.displayName,
+                text = category.displayName,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                 color = if (isSelected) {
@@ -528,9 +522,9 @@ private fun EmptyLocationCard(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(28.dp))
+            .clip(MaterialTheme.shapes.extraLarge)
             .clickable(enabled = enabled, onClick = onClick),
-        shape = RoundedCornerShape(28.dp),
+        shape = MaterialTheme.shapes.extraLarge,
         color = if (enabled) {
             MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
         } else {
@@ -651,24 +645,22 @@ private fun SelectedAddressCard(
     onRemove: () -> Unit
 ) {
     Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(88.dp),
-        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.secondaryContainer,
         tonalElevation = 2.dp
     ) {
         Row(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp),
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Box(
                 modifier = Modifier
                     .size(40.dp)
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(MaterialTheme.shapes.medium)
                     .background(MaterialTheme.colorScheme.primary),
                 contentAlignment = Alignment.Center
             ) {
@@ -729,7 +721,7 @@ private fun EditLocation(
             onClick = onClick,
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary,
-            shape = RoundedCornerShape(16.dp)
+            shape = MaterialTheme.shapes.large
         ) {
             Icon(
                 imageVector = Icons.Filled.Edit,
@@ -755,7 +747,7 @@ private fun SendButton(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            shape = RoundedCornerShape(16.dp),
+            shape = MaterialTheme.shapes.large,
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.primary
             ),
@@ -783,6 +775,7 @@ private fun SendButton(
         }
     }
 }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun LocationSearchSheet(
@@ -884,9 +877,11 @@ private fun SearchResultsContent(
         state.isSearching || state.isFetchingLocation -> {
             LoadingState()
         }
+
         state.addresses.isEmpty() && state.searchQuery.isNotEmpty() -> {
             EmptySearchState()
         }
+
         else -> {
             AddressResultsList(
                 addresses = state.addresses.toList(),
@@ -1006,7 +1001,7 @@ private fun AddressResultItem(
     Surface(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
+        shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp
     ) {
@@ -1123,7 +1118,7 @@ private fun ProcessStep(
             Box(
                 modifier = Modifier
                     .size(48.dp)
-                    .clip(RoundedCornerShape(14.dp))
+                    .clip(MaterialTheme.shapes.medium)
                     .background(
                         Brush.linearGradient(
                             listOf(
@@ -1235,16 +1230,17 @@ private fun LocationPermissionDialog(
     )
 }
 
-fun formatPrimary(address: Address): String = when {
+private fun formatPrimary(address: Address): String = when {
     address.street.isNotBlank() && address.neighborhood.isNotBlank() ->
         "${address.street}, ${address.neighborhood}"
+
     address.street.isNotBlank() -> address.street
     address.neighborhood.isNotBlank() -> address.neighborhood
     address.city.isNotBlank() -> address.city
     else -> "Endereço"
 }
 
-fun formatSecondary(address: Address): String = buildList {
+private fun formatSecondary(address: Address): String = buildList {
     if (address.number.isNotBlank()) add(address.number)
     if (address.postalCode.isNotBlank()) add("CEP ${address.postalCode}")
     if (address.city.isNotBlank()) add(address.city)
