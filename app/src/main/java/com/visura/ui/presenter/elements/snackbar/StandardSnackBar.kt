@@ -23,7 +23,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
+import com.visura.ui.presenter.theme.CornerRadius
+import com.visura.ui.presenter.theme.Elevation
+import com.visura.ui.presenter.theme.Spacing
 
 enum class SnackbarType(
     val containerColor: Color,
@@ -51,28 +53,32 @@ enum class SnackbarType(
     )
 }
 
+data class SnackbarConfig(
+    val hostState: SnackbarHostState,
+    val type: SnackbarType
+)
+
 @Composable
 fun StandardSnackbar(
     hostState: SnackbarHostState,
-    type: SnackbarType = SnackbarType.DEFAULT,
-    modifier: Modifier = Modifier
+    type: SnackbarType = SnackbarType.DEFAULT
 ) {
     SnackbarHost(
         hostState = hostState,
-        modifier = Modifier.padding(16.dp)
+        modifier = Modifier.padding(Spacing.Large)
     ) { data ->
         Card(
-            shape = RoundedCornerShape(8.dp),
+            shape = RoundedCornerShape(CornerRadius.Small),
             colors = CardDefaults.cardColors(
                 containerColor = type.containerColor,
                 contentColor = type.contentColor
             ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+            elevation = CardDefaults.cardElevation(defaultElevation = Elevation.Default)
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .padding(horizontal = Spacing.Large, vertical = Spacing.Small),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -99,7 +105,7 @@ private fun MessageContent(
     Row(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        horizontalArrangement = Arrangement.spacedBy(Spacing.Medium)
     ) {
         Icon(
             imageVector = type.icon,
@@ -119,7 +125,7 @@ private fun MessageContent(
 private fun DismissButton(onDismiss: () -> Unit, tint: Color) {
     IconButton(
         onClick = onDismiss,
-        modifier = Modifier.padding(start = 8.dp)
+        modifier = Modifier.padding(start = Spacing.Small)
     ) {
         Icon(
             imageVector = Icons.Default.Close,

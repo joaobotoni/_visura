@@ -11,13 +11,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 
-
 @Composable
 fun StandardTextButton(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    enabled : Boolean,
+    enabled: Boolean = true,
     @DrawableRes icon: Int? = null,
     contentColor: Color = MaterialTheme.colorScheme.primary
 ) {
@@ -28,13 +27,8 @@ fun StandardTextButton(
         colors = ButtonDefaults.textButtonColors(contentColor = contentColor)
     ) {
         if (icon != null) {
-            Icon(
-                painter = painterResource(id = icon),
-                contentDescription = null
-            )
+            Icon(painter = painterResource(id = icon), contentDescription = null)
         }
         Text(text = text)
     }
-
 }
-

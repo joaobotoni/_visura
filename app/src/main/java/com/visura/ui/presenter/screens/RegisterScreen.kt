@@ -1,20 +1,24 @@
 package com.visura.ui.presenter.screens
 
 import android.Manifest
-import com.visura.domain.vo.location.Address
 import androidx.annotation.RequiresPermission
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -28,38 +32,37 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material.icons.outlined.Apartment
 import androidx.compose.material.icons.outlined.Category
-import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SearchBar
 import androidx.compose.material3.SearchBarDefaults
@@ -71,6 +74,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -79,6 +83,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -87,277 +92,243 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
+import com.google.accompanist.permissions.rememberPermissionState
+import com.google.accompanist.permissions.shouldShowRationale
 import com.visura.R
+import com.visura.domain.vo.location.Address
 import com.visura.domain.vo.property.PropertyCategory
 import com.visura.domain.vo.property.PropertyType
+import com.visura.ui.presenter.elements.badge.StandardSelectionBadge
 import com.visura.ui.presenter.elements.button.StandardTextButton
 import com.visura.ui.presenter.elements.card.StandardCard
+import com.visura.ui.presenter.theme.Alpha
+import com.visura.ui.presenter.theme.ComponentSize
+import com.visura.ui.presenter.theme.CornerRadius
+import com.visura.ui.presenter.theme.Elevation
+import com.visura.ui.presenter.theme.IconSize
+import com.visura.ui.presenter.theme.PulseAnimation
+import com.visura.ui.presenter.theme.Spacing
 import com.visura.ui.viewmodels.RegisterState
 import com.visura.ui.viewmodels.RegisterViewModel
-import com.google.accompanist.permissions.rememberPermissionState
-import com.google.accompanist.permissions.isGranted
-import com.google.accompanist.permissions.shouldShowRationale
+import kotlinx.coroutines.launch
 
-//Adicionado os ultimos 3 import acima.
-//Adicionado
-@OptIn(ExperimentalPermissionsApi::class)
-@Composable
-private fun CameraPermissionHandler(
-    onGranted: () -> Unit
-) {
-    val permissionState = rememberPermissionState(
-        permission = Manifest.permission.CAMERA
-    )
+private const val TOTAL_STEPS = 3
+private const val STEP_WITH_ADDRESS = 2
+private const val STEP_INITIAL = 1
+private const val LOCATION_ITEM_INDEX = 3
 
-    LaunchedEffect(permissionState.status.isGranted) {
-        if (permissionState.status.isGranted) {
-            onGranted()
-        }
-    }
+data class RegisterEvents(
+    val onPropertySelected: (PropertyType) -> Unit,
+    val onCategorySelected: (PropertyCategory) -> Unit,
+    val onLocationRequest: () -> Unit,
+    val onLocationSearch: (String) -> Unit,
+    val onAddressSelected: (Address) -> Unit,
+    val onAddressRemoved: () -> Unit,
+    val onDismissLocationSheet: () -> Unit,
+    val onSubmit: () -> Unit,
+    val onLocationGranted: () -> Unit,
+    val onCameraGranted: () -> Unit
+)
 
-    LaunchedEffect(Unit) {
-        if (!permissionState.status.isGranted) {
-            permissionState.launchPermissionRequest()
-        }
-    }
+data class RegisterCurrentState(
+    val isReadyToSubmit: Boolean,
+    val canAddLocation: Boolean,
+    val currentStep: Int,
+    val showLocationSheet: Boolean
+)
 
-    if (permissionState.status.shouldShowRationale) {
-        CameraPermissionDialog(
-            onConfirm = { permissionState.launchPermissionRequest() }
-        )
-    }
-}
+data class SelectionData<T>(
+    val title: String,
+    val icon: ImageVector,
+    val items: List<T>,
+    val selectedItem: T?
+)
 
-@Composable
-private fun CameraPermissionDialog(
-    onConfirm: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onConfirm,
-        title = {
-            Text(
-                text = "Permissão da Câmera",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
-            )
-        },
-        text = {
-            Text(
-                text = "A câmera é necessária para fotografar o imóvel durante a vistoria.",
-                style = MaterialTheme.typography.bodyMedium
-            )
-        },
-        confirmButton = {
-            StandardTextButton(
-                text = "Permitir",
-                onClick = onConfirm,
-                enabled = true
-            )
-        }
-    )
-}
+data class SelectionCallbacks<T>(
+    val onSelect: (T) -> Unit,
+    val labelSelector: (T) -> String,
+    val iconSelector: ((T) -> ImageVector)? = null
+)
 
-
-
-@RequiresPermission(anyOf = [
-    Manifest.permission.ACCESS_FINE_LOCATION,
-    Manifest.permission.ACCESS_COARSE_LOCATION
-])
+@RequiresPermission(anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Composable
-fun Register(
-    viewModel: RegisterViewModel = hiltViewModel()
-) {
+fun Register(viewModel: RegisterViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsState()
     var showLocationSheet by rememberSaveable { mutableStateOf(false) }
-    val listState = rememberLazyListState()
 
-    LocationPermissionHandler(
-        onGranted = { viewModel.fetchCurrentAddress() }
-    )
-    // ADICIONADO
-    CameraPermissionHandler(
-        onGranted = { /* viewModel.onCameraGranted() — use quando implementar a câmera */ }
-    )
+    LocationPermissionHandler(onGranted = viewModel::fetchCurrentAddress)
+    CameraPermissionHandler(onGranted = {})
 
+    RegisterScaffold(
+        state = state,
+        currentState = formState(state, showLocationSheet),
+        events = formEvents(
+            viewModel = viewModel,
+            setLocationSheetVisible = { showLocationSheet = it })
+    )
+}
+
+private fun formState(state: RegisterState, showLocationSheet: Boolean) = RegisterCurrentState(
+    isReadyToSubmit = state.selectedPropertyCategory != null
+            && state.selectedPropertyType != null
+            && state.selectedAddress != null,
+    canAddLocation = state.selectedPropertyType != null && state.selectedPropertyCategory != null,
+    currentStep = if (state.selectedAddress != null) STEP_WITH_ADDRESS else STEP_INITIAL,
+    showLocationSheet = showLocationSheet
+)
+
+private fun formEvents(
+    viewModel: RegisterViewModel,
+    setLocationSheetVisible: (Boolean) -> Unit
+) = RegisterEvents(
+    onPropertySelected = viewModel::setPropertyType,
+    onCategorySelected = viewModel::setPropertyCategory,
+    onLocationRequest = { setLocationSheetVisible(true) },
+    onLocationSearch = viewModel::setSearchQuery,
+    onAddressSelected = {
+        viewModel.setAddress(it)
+        setLocationSheetVisible(false)
+    },
+    onAddressRemoved = { viewModel.setAddress(null) },
+    onDismissLocationSheet = { setLocationSheetVisible(false) },
+    onSubmit = viewModel::validateAndFinish,
+    onLocationGranted = viewModel::fetchCurrentAddress,
+    onCameraGranted = {}
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RegisterScaffold(
+    state: RegisterState,
+    currentState: RegisterCurrentState,
+    events: RegisterEvents
+) {
     Scaffold(
-        floatingActionButton = {
-            EditLocation(
-                visible = state.selectedAddress != null,
-                onClick = { showLocationSheet = true }
-            )
-        },
         bottomBar = {
-            SendButton(
-                visible = with(state) { selectedPropertyCategory != null && selectedPropertyType != null && selectedAddress != null },
-                onClick = { viewModel.validateAndFinish() }
-            )
+            SubmitButton(visible = currentState.isReadyToSubmit, onClick = events.onSubmit)
         }
     ) { paddingValues ->
         Box(modifier = Modifier.padding(paddingValues)) {
-            RegisterContent(
-                state = state,
-                listState = listState,
-                onPropertySelected = viewModel::setPropertyType,
-                onCategorySelected = viewModel::setPropertyCategory,
-                onAddressRemoved = { viewModel.setAddress(null) },
-                onLocationCardClicked = { showLocationSheet = true }
-            )
-
-            if (showLocationSheet) {
-                LocationSearchSheet(
-                    state = state,
-                    onSearch = viewModel::setSearchQuery,
-                    onAddressSelected = {
-                        viewModel.setAddress(it)
-                        showLocationSheet = false
-                    },
-                    onDismiss = { showLocationSheet = false }
-                )
+            RegisterForm(state = state, currentState = currentState, events = events)
+            if (currentState.showLocationSheet) {
+                LocationSearchSheet(state = state, events = events)
             }
         }
     }
 }
 
 @Composable
-private fun RegisterContent(
+private fun RegisterForm(
     state: RegisterState,
-    listState: androidx.compose.foundation.lazy.LazyListState,
-    onPropertySelected: (PropertyType) -> Unit,
-    onCategorySelected: (PropertyCategory) -> Unit,
-    onAddressRemoved: () -> Unit,
-    onLocationCardClicked: () -> Unit
+    currentState: RegisterCurrentState,
+    events: RegisterEvents
 ) {
+    val listState = rememberLazyListState()
+
+    LaunchedEffect(state.selectedAddress) {
+        listState.animateScrollToItem(LOCATION_ITEM_INDEX)
+    }
+
     LazyColumn(
         state = listState,
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        contentPadding = PaddingValues(Spacing.Large),
+        verticalArrangement = Arrangement.spacedBy(Spacing.Large)
     ) {
+        item { HeaderSection(currentStep = currentState.currentStep) }
         item {
-            HeaderSection(
-                currentStep = if (state.selectedAddress != null) 2 else 1
+            PropertySelectionGroup(
+                data = SelectionData(
+                    title = "Tipo do Imóvel",
+                    icon = Icons.Outlined.Home,
+                    items = PropertyType.entries,
+                    selectedItem = state.selectedPropertyType
+                ),
+                callbacks = SelectionCallbacks(
+                    onSelect = events.onPropertySelected,
+                    labelSelector = { it.displayName }
+                )
             )
         }
-
         item {
-            PropertyTypeCard(
-                selected = state.selectedPropertyType,
-                onSelect = onPropertySelected
+            PropertySelectionGroup(
+                data = SelectionData(
+                    title = "Categoria",
+                    icon = Icons.Outlined.Category,
+                    items = PropertyCategory.entries,
+                    selectedItem = state.selectedPropertyCategory
+                ),
+                callbacks = SelectionCallbacks(
+                    onSelect = events.onCategorySelected,
+                    labelSelector = { it.displayName },
+                    iconSelector = { categoryIcon(it) }
+                )
             )
         }
-
-        item {
-            PropertyCategoryCard(
-                selected = state.selectedPropertyCategory,
-                onSelect = onCategorySelected
-            )
-        }
-
         item {
             LocationSection(
                 address = state.selectedAddress,
-                canAddLocation = state.selectedPropertyType != null && state.selectedPropertyCategory != null,
-                onAddressRemoved = onAddressRemoved,
-                onLocationCardClicked = onLocationCardClicked
+                canAddLocation = currentState.canAddLocation,
+                events = events
             )
-        }
-
-        item {
-            ProcessStepsCard()
         }
     }
 }
 
-@Composable
-private fun LocationSection(
-    address: Address?,
-    canAddLocation: Boolean,
-    onAddressRemoved: () -> Unit,
-    onLocationCardClicked: () -> Unit
-) {
-    AnimatedVisibility(
-        visible = address != null,
-        enter = fadeIn(),
-        exit = fadeOut()
-    ) {
-        address?.let {
-            SelectedAddressCard(
-                address = it,
-                onRemove = onAddressRemoved
-            )
-        }
-    }
-
-    AnimatedVisibility(
-        visible = address == null,
-        enter = fadeIn(),
-        exit = fadeOut()
-    ) {
-        EmptyLocationCard(
-            enabled = canAddLocation,
-            onClick = onLocationCardClicked
-        )
-    }
+private fun categoryIcon(category: PropertyCategory): ImageVector = when (category) {
+    PropertyCategory.HOME -> Icons.Outlined.Home
+    PropertyCategory.APARTMENT -> Icons.Outlined.Apartment
 }
 
 @Composable
 private fun HeaderSection(currentStep: Int) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Spacer(modifier = Modifier.height(Spacing.Huge))
         Text(
             text = "Cadastre o Imóvel",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.headlineLarge,
+            fontWeight = FontWeight.ExtraBold,
             color = MaterialTheme.colorScheme.onSurface
         )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
+        Spacer(modifier = Modifier.height(Spacing.Small))
         Text(
-            text = "Preencha as informações básicas para começar",
+            text = "Preencha as informações para começar",
             style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
+        Spacer(modifier = Modifier.height(Spacing.XXLarge))
         ProgressCard(currentStep = currentStep)
     }
 }
 
 @Composable
 private fun ProgressCard(currentStep: Int) {
-    val progress = currentStep / 3f
-    val percentage = (currentStep * 100 / 3)
+    val progress = currentStep / TOTAL_STEPS.toFloat()
+    val percentage = currentStep * 100 / TOTAL_STEPS
 
     StandardCard {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(Spacing.Large)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Etapa $currentStep de 3",
+                    text = "Etapa $currentStep de $TOTAL_STEPS",
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-
                 PercentageBadge(percentage = percentage)
             }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
+            Spacer(modifier = Modifier.height(Spacing.Medium))
             LinearProgressIndicator(
                 progress = { progress },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(8.dp)
+                    .height(Spacing.Small)
                     .clip(MaterialTheme.shapes.small),
                 color = MaterialTheme.colorScheme.primary,
                 trackColor = MaterialTheme.colorScheme.surfaceContainerHighest
@@ -374,33 +345,33 @@ private fun PercentageBadge(percentage: Int) {
     ) {
         Text(
             text = "$percentage%",
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+            modifier = Modifier.padding(horizontal = Spacing.Medium, vertical = Spacing.XSmall),
             style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onPrimary,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onPrimary
         )
     }
 }
 
 @Composable
-private fun PropertyTypeCard(
-    selected: PropertyType?,
-    onSelect: (PropertyType) -> Unit
+private fun <T> PropertySelectionGroup(
+    data: SelectionData<T>,
+    callbacks: SelectionCallbacks<T>
 ) {
-    val options = PropertyType.entries
-
-    StandardCard {
-        Column(modifier = Modifier.padding(24.dp)) {
-            CardHeader(
-                icon = Icons.Outlined.Home,
-                title = "Tipo do Imóvel"
-            )
-            Spacer(modifier = Modifier.height(20.dp))
-            options.forEach { type ->
-                SelectableOption(
-                    type = type,
-                    isSelected = selected == type,
-                    onClick = { onSelect(type) }
+    Column(modifier = Modifier.fillMaxWidth()) {
+        SectionHeader(icon = data.icon, title = data.title)
+        Spacer(modifier = Modifier.height(Spacing.Medium))
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = Spacing.Large),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.Small)
+        ) {
+            items(data.items) { item ->
+                StandardSelectionBadge(
+                    label = callbacks.labelSelector(item),
+                    isSelected = data.selectedItem == item,
+                    onClick = { callbacks.onSelect(item) },
+                    icon = callbacks.iconSelector?.invoke(item)
                 )
             }
         }
@@ -408,48 +379,17 @@ private fun PropertyTypeCard(
 }
 
 @Composable
-private fun PropertyCategoryCard(
-    selected: PropertyCategory?,
-    onSelect: (PropertyCategory) -> Unit
-) {
-    val options = PropertyCategory.entries
-
-    StandardCard {
-        Column(modifier = Modifier.padding(24.dp)) {
-            CardHeader(
-                icon = Icons.Outlined.Category,
-                title = "Categoria"
-            )
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            options.forEach { category ->
-                CategoryOption(
-                    category = category,
-                    isSelected = selected == category,
-                    onClick = { onSelect(category) }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun CardHeader(
-    icon: ImageVector,
-    title: String
-) {
+private fun SectionHeader(icon: ImageVector, title: String) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        horizontalArrangement = Arrangement.spacedBy(Spacing.Medium)
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier.size(IconSize.Default)
         )
-
         Text(
             text = title,
             style = MaterialTheme.typography.titleLarge,
@@ -460,175 +400,70 @@ private fun CardHeader(
 }
 
 @Composable
-private fun SelectableOption(
-    type: PropertyType,
-    isSelected: Boolean,
-    onClick: () -> Unit
+private fun LocationSection(
+    address: Address?,
+    canAddLocation: Boolean,
+    events: RegisterEvents
 ) {
-    val backgroundColor by animateColorAsState(
-        targetValue = if (isSelected) {
-            MaterialTheme.colorScheme.primaryContainer
-        } else {
-            MaterialTheme.colorScheme.surface
+    AnimatedContent(
+        targetState = address,
+        transitionSpec = {
+            (fadeIn(tween(220, easing = FastOutSlowInEasing)) +
+                    scaleIn(
+                        tween(220, easing = FastOutSlowInEasing),
+                        initialScale = 0.96f
+                    )) togetherWith
+                    (fadeOut(tween(150)) + scaleOut(tween(150), targetScale = 0.96f))
         },
-        animationSpec = tween(200),
-        label = "background_color"
-    )
-
-    Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 6.dp)
-            .clip(MaterialTheme.shapes.large)
-            .clickable(onClick = onClick),
-        color = backgroundColor,
-        tonalElevation = if (isSelected) 2.dp else 0.dp
-    ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            RadioButton(
-                selected = isSelected,
-                onClick = onClick,
-                colors = RadioButtonDefaults.colors(
-                    selectedColor = MaterialTheme.colorScheme.primary,
-                    unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            )
-
-            Text(
-                text = type.displayName,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                color = if (isSelected) {
-                    MaterialTheme.colorScheme.onPrimaryContainer
-                } else {
-                    MaterialTheme.colorScheme.onSurface
-                }
+            .animateContentSize(tween(220, easing = FastOutSlowInEasing)),
+        label = "location_section"
+    ) { targetAddress ->
+        if (targetAddress == null) {
+            EmptyLocationCard(enabled = canAddLocation, onClick = events.onLocationRequest)
+        } else {
+            SelectedAddressCard(
+                address = targetAddress,
+                onEdit = events.onLocationRequest,
+                onRemove = events.onAddressRemoved
             )
         }
     }
 }
 
 @Composable
-private fun CategoryOption(
-    category: PropertyCategory,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
-    val backgroundColor by animateColorAsState(
-        targetValue = if (isSelected) {
-            MaterialTheme.colorScheme.primaryContainer
-        } else {
-            MaterialTheme.colorScheme.surface
-        },
-        animationSpec = tween(200),
-        label = "category_background"
-    )
-
-    val icon = when (category) {
-        PropertyCategory.HOME -> Icons.Outlined.Home
-        PropertyCategory.APARTMENT -> Icons.Outlined.Apartment
-    }
-
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 6.dp)
-            .clip(MaterialTheme.shapes.large)
-            .clickable(onClick = onClick),
-        color = backgroundColor,
-        tonalElevation = if (isSelected) 2.dp else 0.dp
-    ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            RadioButton(
-                selected = isSelected,
-                onClick = onClick,
-                colors = RadioButtonDefaults.colors(
-                    selectedColor = MaterialTheme.colorScheme.primary,
-                    unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            )
-
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = if (isSelected) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-                modifier = Modifier.size(24.dp)
-            )
-
-            Text(
-                text = category.displayName,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                color = if (isSelected) {
-                    MaterialTheme.colorScheme.onPrimaryContainer
-                } else {
-                    MaterialTheme.colorScheme.onSurface
-                }
-            )
-        }
-    }
-}
-
-@Composable
-private fun EmptyLocationCard(
-    enabled: Boolean,
-    onClick: () -> Unit
-) {
+private fun EmptyLocationCard(enabled: Boolean, onClick: () -> Unit) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .clip(MaterialTheme.shapes.extraLarge)
             .clickable(enabled = enabled, onClick = onClick),
         shape = MaterialTheme.shapes.extraLarge,
-        color = if (enabled) {
-            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-        } else {
-            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
-        }
+        color = if (enabled) MaterialTheme.colorScheme.primaryContainer.copy(alpha = Alpha.Medium)
+        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = Alpha.XLow)
     ) {
         Column(
-            modifier = Modifier.padding(32.dp),
+            modifier = Modifier.padding(Spacing.Huge),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            LocationIconContainer(enabled = enabled)
-
-            Spacer(modifier = Modifier.height(24.dp))
-
+            LocationIconContainer(isActive = enabled)
+            Spacer(modifier = Modifier.height(Spacing.XXLarge))
             Text(
                 text = if (enabled) "Adicione a Localização" else "Aguardando Seleção",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
-                color = if (enabled) {
-                    MaterialTheme.colorScheme.onSurface
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                },
+                color = if (enabled) MaterialTheme.colorScheme.onSurface
+                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = Alpha.High),
                 textAlign = TextAlign.Center
             )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
+            Spacer(modifier = Modifier.height(Spacing.Medium))
             Text(
-                text = if (enabled) {
-                    "Toque aqui para buscar ou usar sua localização atual"
-                } else {
-                    "Selecione o tipo e categoria do imóvel primeiro"
-                },
+                text = if (enabled) "Toque aqui para buscar ou usar sua localização atual"
+                else "Selecione o tipo e categoria do imóvel primeiro",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
-                    alpha = if (enabled) 0.8f else 0.5f
+                    alpha = if (enabled) Alpha.High else Alpha.Medium
                 ),
                 textAlign = TextAlign.Center
             )
@@ -637,28 +472,25 @@ private fun EmptyLocationCard(
 }
 
 @Composable
-private fun LocationIconContainer(enabled: Boolean) {
+private fun LocationIconContainer(isActive: Boolean) {
     Box(
         modifier = Modifier
-            .size(96.dp)
+            .size(ComponentSize.XLarge)
             .clip(CircleShape)
             .background(
-                if (enabled) {
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-                } else {
-                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
-                }
+                if (isActive) MaterialTheme.colorScheme.primary.copy(alpha = Alpha.Low)
+                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = Alpha.XXLow)
             ),
         contentAlignment = Alignment.Center
     ) {
-        if (enabled) {
+        if (isActive) {
             PulsingLocationIcon()
         } else {
             Icon(
                 imageVector = Icons.Filled.LocationOn,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                modifier = Modifier.size(48.dp)
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = Alpha.Medium),
+                modifier = Modifier.size(IconSize.XLarge)
             )
         }
     }
@@ -666,31 +498,29 @@ private fun LocationIconContainer(enabled: Boolean) {
 
 @Composable
 private fun PulsingLocationIcon() {
-    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-
-    val scale by infiniteTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = 1.15f,
+    val transition = rememberInfiniteTransition(label = "pulse")
+    val scale by transition.animateFloat(
+        initialValue = PulseAnimation.InitialScale,
+        targetValue = PulseAnimation.TargetScale,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1000, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
+            tween(PulseAnimation.DurationMs, easing = FastOutSlowInEasing),
+            RepeatMode.Reverse
         ),
         label = "scale"
     )
-
-    val alpha by infiniteTransition.animateFloat(
-        initialValue = 0.6f,
-        targetValue = 1f,
+    val alpha by transition.animateFloat(
+        initialValue = PulseAnimation.InitialAlpha,
+        targetValue = PulseAnimation.TargetAlpha,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1000, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
+            tween(PulseAnimation.DurationMs, easing = FastOutSlowInEasing),
+            RepeatMode.Reverse
         ),
         label = "alpha"
     )
 
     Box(
         modifier = Modifier
-            .size(80.dp)
+            .size(ComponentSize.Large)
             .scale(scale)
             .alpha(alpha)
             .clip(CircleShape)
@@ -701,129 +531,145 @@ private fun PulsingLocationIcon() {
             imageVector = Icons.Filled.LocationOn,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(40.dp)
+            modifier = Modifier.size(IconSize.Large)
         )
     }
 }
 
 @Composable
-private fun SelectedAddressCard(
-    address: Address,
-    onRemove: () -> Unit
-) {
-    Surface(
+private fun SelectedAddressCard(address: Address, onEdit: () -> Unit, onRemove: () -> Unit) {
+    Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.secondaryContainer,
-        tonalElevation = 2.dp
+        shape = RoundedCornerShape(CornerRadius.XXLarge),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        elevation = CardDefaults.cardElevation(defaultElevation = Elevation.None),
+        border = BorderStroke(
+            Spacing.Hairline,
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = Alpha.XXLow)
+        )
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(Spacing.XLarge),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.Medium),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(MaterialTheme.shapes.medium)
-                    .background(MaterialTheme.colorScheme.primary),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.CheckCircle,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Endereço Selecionado",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
-                    fontWeight = FontWeight.Medium
-                )
-
-                Spacer(modifier = Modifier.height(2.dp))
-
-                Text(
-                    text = formatPrimary(address),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer
-                )
-            }
-
-            IconButton(
-                onClick = onRemove,
-                modifier = Modifier.size(36.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Close,
-                    contentDescription = "Remover endereço",
-                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
+            SelectedAddressIcon()
+            AddressCardContent(address = address, modifier = Modifier.weight(1f))
+            AddressCardActions(onEdit = onEdit, onRemove = onRemove)
         }
     }
 }
 
 @Composable
-private fun EditLocation(
-    visible: Boolean,
-    onClick: () -> Unit
-) {
-    AnimatedVisibility(
-        visible = visible,
-        enter = fadeIn() + slideInVertically { it },
-        exit = fadeOut() + slideOutVertically { it }
+private fun SelectedAddressIcon() {
+    Box(
+        modifier = Modifier
+            .size(IconSize.XLarge)
+            .clip(RoundedCornerShape(CornerRadius.Large))
+            .background(MaterialTheme.colorScheme.primary.copy(alpha = Alpha.Low))
+            .border(
+                Spacing.Hairline,
+                MaterialTheme.colorScheme.primary.copy(alpha = Alpha.XLow),
+                RoundedCornerShape(CornerRadius.Large)
+            ),
+        contentAlignment = Alignment.Center
     ) {
-        FloatingActionButton(
-            onClick = onClick,
-            containerColor = MaterialTheme.colorScheme.primary,
-            contentColor = MaterialTheme.colorScheme.onPrimary,
-            shape = MaterialTheme.shapes.large
-        ) {
-            Icon(
-                imageVector = Icons.Filled.Edit,
-                contentDescription = "Editar localização",
-                modifier = Modifier.size(24.dp)
-            )
-        }
+        Icon(
+            imageVector = Icons.Outlined.LocationOn,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(IconSize.Default)
+        )
     }
 }
 
 @Composable
-private fun SendButton(
-    visible: Boolean,
-    onClick: () -> Unit
-) {
+private fun AddressCardContent(address: Address, modifier: Modifier) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(Spacing.XXSmall)
+    ) {
+        Text(
+            text = "Endereço selecionado",
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Text(
+            text = address.toPrimaryFormat(),
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Text(
+            text = address.toSecondaryFormat(),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+private fun AddressCardActions(onEdit: () -> Unit, onRemove: () -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.XXSmall)) {
+        AddressActionButton(
+            icon = Icons.Outlined.Edit,
+            tint = MaterialTheme.colorScheme.primary,
+            onClick = onEdit
+        )
+        AddressActionButton(
+            icon = Icons.Outlined.Delete,
+            tint = MaterialTheme.colorScheme.error,
+            onClick = onRemove
+        )
+    }
+}
+
+@Composable
+private fun AddressActionButton(icon: ImageVector, tint: Color, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(ComponentSize.Small)
+            .clip(RoundedCornerShape(CornerRadius.Medium))
+            .background(tint.copy(alpha = Alpha.XXLow))
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = tint,
+            modifier = Modifier.size(IconSize.Small)
+        )
+    }
+}
+
+@Composable
+private fun SubmitButton(visible: Boolean, onClick: () -> Unit) {
     AnimatedVisibility(
         visible = visible,
-        enter = slideInVertically { it } + fadeIn(),
-        exit = slideOutVertically { it } + fadeOut()
+        enter = expandVertically(tween(220, easing = FastOutSlowInEasing)) + fadeIn(tween(220, easing = FastOutSlowInEasing)),
+        exit = shrinkVertically(tween(150)) + fadeOut(tween(150))
     ) {
         Button(
             onClick = onClick,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(Spacing.Large),
             shape = MaterialTheme.shapes.large,
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary
-            ),
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
             contentPadding = PaddingValues(0.dp)
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 16.dp, horizontal = 16.dp)
+                    .padding(vertical = Spacing.Large, horizontal = Spacing.Large)
             ) {
                 Text(
                     text = "Finalizar Cadastro",
@@ -835,7 +681,7 @@ private fun SendButton(
                     imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                     contentDescription = null,
                     modifier = Modifier
-                        .size(20.dp)
+                        .size(IconSize.Default)
                         .align(Alignment.CenterEnd)
                 )
             }
@@ -843,71 +689,168 @@ private fun SendButton(
     }
 }
 
+@OptIn(ExperimentalPermissionsApi::class)
+@Composable
+private fun LocationPermissionHandler(onGranted: () -> Unit) {
+    val permissionsState = rememberMultiplePermissionsState(
+        permissions = listOf(
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        )
+    )
+
+    LaunchedEffect(permissionsState.allPermissionsGranted) {
+        if (permissionsState.allPermissionsGranted) onGranted()
+    }
+    LaunchedEffect(Unit) {
+        if (!permissionsState.allPermissionsGranted) permissionsState.launchMultiplePermissionRequest()
+    }
+
+    if (permissionsState.shouldShowRationale) {
+        LocationPermissionDialog(onConfirm = permissionsState::launchMultiplePermissionRequest)
+    }
+}
+
+@OptIn(ExperimentalPermissionsApi::class)
+@Composable
+private fun CameraPermissionHandler(onGranted: () -> Unit) {
+    val permissionState = rememberPermissionState(permission = Manifest.permission.CAMERA)
+
+    LaunchedEffect(permissionState.status.isGranted) {
+        if (permissionState.status.isGranted) onGranted()
+    }
+    LaunchedEffect(Unit) {
+        if (!permissionState.status.isGranted) permissionState.launchPermissionRequest()
+    }
+
+    if (permissionState.status.shouldShowRationale) {
+        CameraPermissionDialog(onConfirm = permissionState::launchPermissionRequest)
+    }
+}
+
+@Composable
+private fun LocationPermissionDialog(onConfirm: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onConfirm,
+        title = {
+            Text(
+                text = stringResource(R.string.permission_location_error_title),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Text(
+                text = stringResource(R.string.permission_location_error_body),
+                style = MaterialTheme.typography.bodyMedium
+            )
+        },
+        confirmButton = {
+            StandardTextButton(text = "Permitir", onClick = onConfirm, enabled = true)
+        }
+    )
+}
+
+@Composable
+private fun CameraPermissionDialog(onConfirm: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onConfirm,
+        title = {
+            Text(
+                text = "Permissão da Câmera",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Text(
+                text = "A câmera é necessária para fotografar o imóvel durante a vistoria.",
+                style = MaterialTheme.typography.bodyMedium
+            )
+        },
+        confirmButton = {
+            StandardTextButton(text = "Permitir", onClick = onConfirm, enabled = true)
+        }
+    )
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun LocationSearchSheet(
-    state: RegisterState,
-    onSearch: (String) -> Unit,
-    onAddressSelected: (Address) -> Unit,
-    onDismiss: () -> Unit
-) {
+private fun LocationSearchSheet(state: RegisterState, events: RegisterEvents) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scope = rememberCoroutineScope()
     var query by rememberSaveable { mutableStateOf("") }
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-        dragHandle = {
-            Box(
-                modifier = Modifier
-                    .padding(vertical = 12.dp)
-                    .size(width = 40.dp, height = 4.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
-            )
+    val onAddressSelectedAnimated: (Address) -> Unit = { address ->
+        scope.launch {
+            sheetState.hide()
+            events.onAddressSelected(address)
         }
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = events.onDismissLocationSheet,
+        sheetState = sheetState,
+        shape = RoundedCornerShape(topStart = CornerRadius.XXLarge, topEnd = CornerRadius.XXLarge),
+        dragHandle = { SheetDragHandle() }
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .padding(top = 8.dp, bottom = 24.dp)
+                .padding(top = Spacing.Medium, bottom = Spacing.XXLarge)
         ) {
-            LocationSearchBar(
-                query = query,
-                onQueryChange = {
-                    query = it
-                    onSearch(it)
-                }
-            )
-
-            if (query.isNotEmpty() || state.isSearching || state.isFetchingLocation || state.addresses.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(16.dp))
-
-                SearchResultsContent(
-                    state = state,
-                    onAddressSelected = onAddressSelected
+            Box(modifier = Modifier.padding(horizontal = Spacing.XXLarge)) {
+                LocationSearchBar(
+                    query = query,
+                    onQueryChange = {
+                        query = it
+                        events.onLocationSearch(it)
+                    }
                 )
+            }
+
+            val hasContent =
+                query.isNotEmpty() || state.isSearching || state.isFetchingLocation || state.addresses.isNotEmpty()
+
+            AnimatedVisibility(
+                visible = hasContent,
+                enter = fadeIn(tween(220, easing = FastOutSlowInEasing)),
+                exit = fadeOut(tween(150))
+            ) {
+                Column {
+                    Spacer(modifier = Modifier.height(Spacing.Large))
+                    SearchResultsContent(
+                        state = state,
+                        onAddressSelected = onAddressSelectedAnimated
+                    )
+                }
             }
         }
     }
 }
 
+@Composable
+private fun SheetDragHandle() {
+    Box(
+        modifier = Modifier
+            .padding(vertical = Spacing.Medium)
+            .size(width = ComponentSize.Small, height = Spacing.XXSmall)
+            .clip(RoundedCornerShape(Spacing.XXSmall))
+            .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = Alpha.Medium))
+    )
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun LocationSearchBar(
-    query: String,
-    onQueryChange: (String) -> Unit
-) {
+private fun LocationSearchBar(query: String, onQueryChange: (String) -> Unit) {
     SearchBar(
         inputField = {
             SearchBarDefaults.InputField(
                 query = query,
                 onQueryChange = onQueryChange,
-                onSearch = { },
+                onSearch = {},
                 expanded = false,
-                onExpandedChange = { },
+                onExpandedChange = {},
                 placeholder = {
                     Text(
                         text = "Digite sua localização",
@@ -926,34 +869,47 @@ private fun LocationSearchBar(
             )
         },
         expanded = false,
-        onExpandedChange = { },
+        onExpandedChange = {},
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
-        colors = SearchBarDefaults.colors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-        )
+        colors = SearchBarDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
     ) {}
 }
 
+private sealed interface SearchResultState {
+    data object Idle : SearchResultState
+    data object Loading : SearchResultState
+    data object Empty : SearchResultState
+    data class Results(val addresses: List<Address>) : SearchResultState
+}
+
 @Composable
-private fun SearchResultsContent(
-    state: RegisterState,
-    onAddressSelected: (Address) -> Unit
-) {
-    when {
-        state.isSearching || state.isFetchingLocation -> {
-            LoadingState()
-        }
+private fun SearchResultsContent(state: RegisterState, onAddressSelected: (Address) -> Unit) {
+    val resultState = when {
+        state.isSearching || state.isFetchingLocation -> SearchResultState.Loading
+        state.addresses.isNotEmpty() -> SearchResultState.Results(state.addresses.toList())
+        state.searchQuery.isNotEmpty() -> SearchResultState.Empty
+        else -> SearchResultState.Idle
+    }
 
-        state.addresses.isEmpty() && state.searchQuery.isNotEmpty() -> {
-            EmptySearchState()
-        }
-
-        else -> {
-            AddressResultsList(
-                addresses = state.addresses.toList(),
+    AnimatedContent(
+        targetState = resultState,
+        transitionSpec = {
+            (fadeIn(tween(220, easing = FastOutSlowInEasing)) +
+                    scaleIn(tween(220, easing = FastOutSlowInEasing), initialScale = 0.96f)) togetherWith
+                    (fadeOut(tween(150)) + scaleOut(tween(150), targetScale = 0.96f))
+        },
+        label = "search_results"
+    ) { searchState ->
+        when (searchState) {
+            SearchResultState.Loading -> LoadingState()
+            SearchResultState.Empty -> EmptySearchState()
+            is SearchResultState.Results -> AddressResultsList(
+                addresses = searchState.addresses,
                 onSelect = onAddressSelected
             )
+
+            SearchResultState.Idle -> Spacer(modifier = Modifier.height(Spacing.XSmall))
         }
     }
 }
@@ -963,16 +919,15 @@ private fun LoadingState() {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 48.dp),
+            .padding(vertical = Spacing.XXHuge),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(Spacing.Large)
     ) {
         CircularProgressIndicator(
-            modifier = Modifier.size(48.dp),
+            modifier = Modifier.size(ComponentSize.Small),
             color = MaterialTheme.colorScheme.primary,
-            strokeWidth = 4.dp
+            strokeWidth = Spacing.XSmall
         )
-
         Text(
             text = "Buscando endereços...",
             style = MaterialTheme.typography.bodyMedium,
@@ -986,25 +941,25 @@ private fun EmptySearchState() {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 40.dp, horizontal = 24.dp),
+            .padding(vertical = Spacing.Huge, horizontal = Spacing.XXLarge),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(Spacing.Large)
     ) {
         Box(
             modifier = Modifier
-                .size(96.dp)
+                .size(ComponentSize.XLarge)
                 .clip(CircleShape)
                 .background(
                     Brush.radialGradient(
                         listOf(
-                            MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f),
-                            MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.05f)
+                            MaterialTheme.colorScheme.errorContainer.copy(alpha = Alpha.XLow),
+                            MaterialTheme.colorScheme.errorContainer.copy(alpha = Alpha.XXLow)
                         )
                     )
                 )
                 .border(
-                    width = 1.dp,
-                    color = MaterialTheme.colorScheme.error.copy(alpha = 0.1f),
+                    width = Spacing.Hairline,
+                    color = MaterialTheme.colorScheme.error.copy(alpha = Alpha.XXLow),
                     shape = CircleShape
                 ),
             contentAlignment = Alignment.Center
@@ -1012,14 +967,13 @@ private fun EmptySearchState() {
             Icon(
                 imageVector = Icons.Filled.SearchOff,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.error.copy(alpha = 0.6f),
-                modifier = Modifier.size(48.dp)
+                tint = MaterialTheme.colorScheme.error.copy(alpha = Alpha.High),
+                modifier = Modifier.size(IconSize.XLarge)
             )
         }
-
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(Spacing.Medium)
         ) {
             Text(
                 text = "Nenhum resultado encontrado",
@@ -1028,11 +982,10 @@ private fun EmptySearchState() {
                 color = MaterialTheme.colorScheme.onSurface,
                 textAlign = TextAlign.Center
             )
-
             Text(
                 text = "Tente buscar com outros termos ou verifique a ortografia",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
         }
@@ -1040,20 +993,17 @@ private fun EmptySearchState() {
 }
 
 @Composable
-private fun AddressResultsList(
-    addresses: List<Address>,
-    onSelect: (Address) -> Unit
-) {
-    LazyColumn(
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        contentPadding = PaddingValues(vertical = 8.dp)
+private fun AddressResultsList(addresses: List<Address>, onSelect: (Address) -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
+            .padding(vertical = Spacing.Medium)
     ) {
-        itemsIndexed(
-            items = addresses,
-            key = { _, address -> address.hashCode() }
-        ) { _, address ->
+        addresses.forEachIndexed { index, address ->
             AddressResultItem(
                 address = address,
+                isLast = index == addresses.lastIndex,
                 onClick = { onSelect(address) }
             )
         }
@@ -1061,255 +1011,78 @@ private fun AddressResultsList(
 }
 
 @Composable
-private fun AddressResultItem(
-    address: Address,
-    onClick: () -> Unit
-) {
-    Surface(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 0.dp
-    ) {
+private fun AddressResultItem(address: Address, isLast: Boolean, onClick: () -> Unit) {
+    Column(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
+                .clickable(onClick = onClick)
+                .padding(horizontal = Spacing.XXLarge, vertical = Spacing.Large),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.Large),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Ícone de localização com fundo
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceContainerHighest),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.LocationOn,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Text(
-                    text = formatPrimary(address),
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-
-                Text(
-                    text = formatSecondary(address),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                modifier = Modifier.size(18.dp)
+            AddressResultIcon()
+            AddressResultDetails(modifier = Modifier.weight(1f), address = address)
+        }
+        if (!isLast) {
+            HorizontalDivider(
+                modifier = Modifier.padding(start = 80.dp, end = Spacing.XXLarge),
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = Alpha.XXLow)
             )
         }
     }
 }
 
 @Composable
-private fun ProcessStepsCard() {
-    StandardCard {
-        Column(modifier = Modifier.padding(24.dp)) {
-            Text(
-                text = "Como Funciona",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            ProcessStep(
-                icon = Icons.Outlined.Home,
-                title = "Defina o Tipo",
-                description = "Escolha se é residencial, comercial ou não residencial"
-            )
-
-            ProcessStep(
-                icon = Icons.Outlined.Category,
-                title = "Defina uma categoria",
-                description = "Escolha se é Apartamento ou Casa"
-            )
-
-            ProcessStep(
-                icon = Icons.Outlined.LocationOn,
-                title = "Adicione a Localização",
-                description = "Busque ou use sua localização atual"
-            )
-
-            ProcessStep(
-                icon = Icons.Outlined.Check,
-                title = "Finalize o Cadastro",
-                description = "Complete as informações e salve",
-                isLast = true
-            )
-        }
-    }
-}
-
-@Composable
-private fun ProcessStep(
-    icon: ImageVector,
-    title: String,
-    description: String,
-    isLast: Boolean = false
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.Top,
-        horizontalArrangement = Arrangement.spacedBy(16.dp)
+private fun AddressResultIcon() {
+    Box(
+        modifier = Modifier
+            .size(ComponentSize.Small)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+        contentAlignment = Alignment.Center
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(MaterialTheme.shapes.medium)
-                    .background(
-                        Brush.linearGradient(
-                            listOf(
-                                MaterialTheme.colorScheme.primaryContainer,
-                                MaterialTheme.colorScheme.secondaryContainer
-                            )
-                        )
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-
-            if (!isLast) {
-                Box(
-                    modifier = Modifier
-                        .width(2.dp)
-                        .height(48.dp)
-                        .background(MaterialTheme.colorScheme.outlineVariant)
-                )
-            }
-        }
-
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .padding(bottom = if (!isLast) 16.dp else 0.dp)
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
-@OptIn(ExperimentalPermissionsApi::class)
-@Composable
-private fun LocationPermissionHandler(
-    onGranted: () -> Unit
-) {
-    val permissionsState = rememberMultiplePermissionsState(
-        permissions = listOf(
-            Manifest.permission.ACCESS_COARSE_LOCATION,
-            Manifest.permission.ACCESS_FINE_LOCATION
-        )
-    )
-
-    LaunchedEffect(permissionsState.allPermissionsGranted) {
-        if (permissionsState.allPermissionsGranted) {
-            onGranted()
-        }
-    }
-
-    LaunchedEffect(Unit) {
-        if (!permissionsState.allPermissionsGranted) {
-            permissionsState.launchMultiplePermissionRequest()
-        }
-    }
-
-    if (permissionsState.shouldShowRationale) {
-        LocationPermissionDialog(
-            onConfirm = { permissionsState.launchMultiplePermissionRequest() }
+        Icon(
+            imageVector = Icons.Outlined.LocationOn,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(IconSize.Default)
         )
     }
 }
 
 @Composable
-private fun LocationPermissionDialog(
-    onConfirm: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onConfirm,
-        title = {
-            Text(
-                text = stringResource(R.string.permission_location_error_title),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
-            )
-        },
-        text = {
-            Text(
-                text = stringResource(R.string.permission_location_error_body),
-                style = MaterialTheme.typography.bodyMedium
-            )
-        },
-        confirmButton = {
-            StandardTextButton(
-                text = "Permitir",
-                onClick = onConfirm,
-                enabled = true
-            )
-        }
-    )
+private fun AddressResultDetails(modifier: Modifier, address: Address) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(Spacing.XSmall)) {
+        Text(
+            text = address.toPrimaryFormat(),
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Text(
+            text = address.toSecondaryFormat(),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
 }
 
-private fun formatPrimary(address: Address): String = when {
-    address.street.isNotBlank() && address.neighborhood.isNotBlank() ->
-        "${address.street}, ${address.neighborhood}"
-
-    address.street.isNotBlank() -> address.street
-    address.neighborhood.isNotBlank() -> address.neighborhood
-    address.city.isNotBlank() -> address.city
+private fun Address.toPrimaryFormat(): String = when {
+    street.isNotBlank() && neighborhood.isNotBlank() -> "$street, $neighborhood"
+    street.isNotBlank() -> street
+    neighborhood.isNotBlank() -> neighborhood
+    city.isNotBlank() -> city
     else -> "Endereço"
 }
 
-private fun formatSecondary(address: Address): String = buildList {
-    if (address.number.isNotBlank()) add(address.number)
-    if (address.postalCode.isNotBlank()) add("CEP ${address.postalCode}")
-    if (address.city.isNotBlank()) add(address.city)
-    if (address.state.isNotBlank()) add(address.state)
+private fun Address.toSecondaryFormat(): String = buildList {
+    if (number.isNotBlank()) add("N° $number")
+    if (postalCode.isNotBlank()) add("CEP $postalCode")
+    if (city.isNotBlank()) add(city)
+    if (state.isNotBlank()) add(state)
 }.joinToString(", ")

@@ -11,25 +11,26 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.unit.dp
+import com.visura.ui.presenter.theme.CornerRadius
 
 @Composable
 fun StandardButton(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    enabled: Boolean,
+    enabled: Boolean = true,
     @DrawableRes icon: Int? = null,
     containerColor: Color = MaterialTheme.colorScheme.primary,
     contentColor: Color = MaterialTheme.colorScheme.onPrimary
 ) {
     Button(
         onClick = onClick,
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(CornerRadius.Medium),
         modifier = modifier,
         enabled = enabled,
         colors = ButtonDefaults.buttonColors(
-            containerColor = containerColor, contentColor = contentColor
+            containerColor = containerColor,
+            contentColor = contentColor
         )
     ) {
         if (icon != null) {

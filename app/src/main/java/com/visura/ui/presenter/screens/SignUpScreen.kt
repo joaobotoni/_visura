@@ -2,7 +2,6 @@ package com.visura.ui.presenter.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -10,17 +9,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
@@ -35,33 +25,44 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.visura.R
 import com.visura.domain.vo.authentication.Email
 import com.visura.domain.vo.authentication.Password
 import com.visura.ui.presenter.elements.button.StandardButton
-import com.visura.ui.presenter.elements.button.StandardOutlinedButton
+import com.visura.ui.presenter.elements.button.StandardGoogleButton
 import com.visura.ui.presenter.elements.button.StandardTextButton
-import com.visura.ui.presenter.elements.field.StandardTextField
+import com.visura.ui.presenter.elements.divider.StandardLabeledDivider
+import com.visura.ui.presenter.elements.field.EmailTextField
+import com.visura.ui.presenter.elements.field.PasswordTextField
+import com.visura.ui.presenter.elements.snackbar.SnackbarConfig
 import com.visura.ui.presenter.elements.snackbar.SnackbarType
 import com.visura.ui.presenter.elements.snackbar.StandardSnackbar
+import com.visura.ui.presenter.theme.Alpha
+import com.visura.ui.presenter.theme.ComponentSize
 import com.visura.ui.presenter.theme.DemoTheme
+import com.visura.ui.presenter.theme.FontSize
+import com.visura.ui.presenter.theme.Spacing
 import com.visura.ui.viewmodels.SignUpEvent
 import com.visura.ui.viewmodels.SignUpState
 import com.visura.ui.viewmodels.SignUpViewModel
 import kotlinx.coroutines.flow.collectLatest
+
+private data class SignUpEvents(
+    val onEmailChange: (String) -> Unit,
+    val onPasswordChange: (String) -> Unit,
+    val onConfirmPasswordChange: (String) -> Unit,
+    val onTogglePasswordVisibility: () -> Unit,
+    val onToggleConfirmPasswordVisibility: () -> Unit,
+    val onSignUpWithEmail: () -> Unit,
+    val onSignUpWithGoogle: () -> Unit,
+    val onSignInClick: () -> Unit
+)
 
 @Composable
 fun SignUpScreen(
@@ -74,73 +75,51 @@ fun SignUpScreen(
 
     LaunchedEffect(Unit) {
         viewModel.event.collectLatest { event ->
-
             snackbarType = when (event) {
                 is SignUpEvent.Success -> SnackbarType.SUCCESS
                 is SignUpEvent.Error -> SnackbarType.ERROR
             }
-
             val message = when (event) {
                 is SignUpEvent.Success -> "Cadastro realizado com sucesso!"
                 is SignUpEvent.Error -> event.exception.message ?: "Erro desconhecido ao realizar cadastro."
             }
-
-            snackbarHostState.showSnackbar(
-                message = message,
-                duration = SnackbarDuration.Short
-            )
+            snackbarHostState.showSnackbar(message = message, duration = SnackbarDuration.Short)
         }
     }
 
     SignUpScreenContent(
         state = state,
-        snackbarHostState = snackbarHostState,
-        snackbarType = snackbarType,
-        onEmailChange = { viewModel.setEmail(Email(it)) },
-        onPasswordChange = { viewModel.setPassword(Password(it)) },
-        onConfirmPasswordChange = { viewModel.setConfirm(Password(it)) },
-        onTogglePasswordVisibility = viewModel::togglePassword,
-        onToggleConfirmPasswordVisibility = viewModel::toggleConfirm,
-        onSignUpWithEmail = viewModel::signUpWithEmail,
-        onSignUpWithGoogle = viewModel::signUpWithGoogle,
-        onSignInClick = navSignIn
+        snackbar = SnackbarConfig(hostState = snackbarHostState, type = snackbarType),
+        events = SignUpEvents(
+            onEmailChange = { viewModel.setEmail(Email(it)) },
+            onPasswordChange = { viewModel.setPassword(Password(it)) },
+            onConfirmPasswordChange = { viewModel.setConfirm(Password(it)) },
+            onTogglePasswordVisibility = viewModel::togglePassword,
+            onToggleConfirmPasswordVisibility = viewModel::toggleConfirm,
+            onSignUpWithEmail = viewModel::signUpWithEmail,
+            onSignUpWithGoogle = viewModel::signUpWithGoogle,
+            onSignInClick = navSignIn
+        )
     )
 }
+
 @Composable
 private fun SignUpScreenContent(
     state: SignUpState,
-    snackbarHostState: SnackbarHostState,
-    snackbarType: SnackbarType,
-    onEmailChange: (String) -> Unit,
-    onPasswordChange: (String) -> Unit,
-    onConfirmPasswordChange: (String) -> Unit,
-    onTogglePasswordVisibility: () -> Unit,
-    onToggleConfirmPasswordVisibility: () -> Unit,
-    onSignUpWithEmail: () -> Unit,
-    onSignUpWithGoogle: () -> Unit,
-    onSignInClick: () -> Unit
+    snackbar: SnackbarConfig,
+    events: SignUpEvents
 ) {
     DemoTheme {
-        Surface(
-            modifier = Modifier.fillMaxSize()
-        ) {
+        Surface(modifier = Modifier.fillMaxSize()) {
             Scaffold(
                 snackbarHost = {
-                    StandardSnackbar(
-                        hostState = snackbarHostState, type = snackbarType
-                    )
-                }) { paddingValues ->
+                    StandardSnackbar(hostState = snackbar.hostState, type = snackbar.type)
+                }
+            ) { paddingValues ->
                 SignUpForm(
                     modifier = Modifier.padding(paddingValues),
                     state = state,
-                    onEmailChange = onEmailChange,
-                    onPasswordChange = onPasswordChange,
-                    onConfirmPasswordChange = onConfirmPasswordChange,
-                    onTogglePasswordVisibility = onTogglePasswordVisibility,
-                    onToggleConfirmPasswordVisibility = onToggleConfirmPasswordVisibility,
-                    onSignUpWithEmail = onSignUpWithEmail,
-                    onSignUpWithGoogle = onSignUpWithGoogle,
-                    onSignInClick = onSignInClick
+                    events = events
                 )
             }
         }
@@ -151,57 +130,41 @@ private fun SignUpScreenContent(
 private fun SignUpForm(
     modifier: Modifier = Modifier,
     state: SignUpState,
-    onEmailChange: (String) -> Unit,
-    onPasswordChange: (String) -> Unit,
-    onConfirmPasswordChange: (String) -> Unit,
-    onTogglePasswordVisibility: () -> Unit,
-    onToggleConfirmPasswordVisibility: () -> Unit,
-    onSignUpWithEmail: () -> Unit,
-    onSignUpWithGoogle: () -> Unit,
-    onSignInClick: () -> Unit
+    events: SignUpEvents
 ) {
     Column(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(28.dp)
+            .padding(Spacing.XXXLarge)
             .background(MaterialTheme.colorScheme.background),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         SignUpHeader()
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        SignUpInputFields(
-            state = state,
-            onEmailChange = onEmailChange,
-            onPasswordChange = onPasswordChange,
-            onConfirmPasswordChange = onConfirmPasswordChange,
-            onTogglePasswordVisibility = onTogglePasswordVisibility,
-            onToggleConfirmPasswordVisibility = onToggleConfirmPasswordVisibility
+        Spacer(modifier = Modifier.height(Spacing.Huge))
+        SignUpInputFields(state = state, events = events)
+        Spacer(modifier = Modifier.height(Spacing.Large))
+        SignInLink(onClick = events.onSignInClick)
+        Spacer(modifier = Modifier.height(Spacing.XLarge))
+        StandardButton(
+            text = stringResource(R.string.button_register),
+            onClick = events.onSignUpWithEmail,
+            enabled = !state.emailLoading,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(ComponentSize.Medium)
         )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        SignInLink(
-            onSignInClick = onSignInClick
+        Spacer(modifier = Modifier.height(Spacing.XXLarge))
+        StandardLabeledDivider(
+            label = stringResource(R.string.divider_text),
+            modifier = Modifier.fillMaxWidth()
         )
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        SignUpButton(
-            enabled = !state.emailLoading, onClick = onSignUpWithEmail
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        DividerWithText()
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        GoogleButton(
-            enabled = !state.googleLoading, onClick = onSignUpWithGoogle
+        Spacer(modifier = Modifier.height(Spacing.XXLarge))
+        StandardGoogleButton(
+            text = stringResource(R.string.button_social_register),
+            enabled = !state.googleLoading,
+            onClick = events.onSignUpWithGoogle
         )
     }
 }
@@ -210,243 +173,81 @@ private fun SignUpForm(
 private fun SignUpHeader() {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(Spacing.Small)
     ) {
         Text(
             text = stringResource(R.string.header_sign_up),
-            fontSize = 28.sp,
+            fontSize = FontSize.XLarge,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onBackground,
             textAlign = TextAlign.Center
         )
         Text(
             text = stringResource(R.string.subheader_sign_up),
-            fontSize = 16.sp,
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+            fontSize = FontSize.Medium,
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = Alpha.XHigh),
             textAlign = TextAlign.Center,
-            lineHeight = 22.sp
+            lineHeight = FontSize.Large
         )
     }
 }
 
 @Composable
-private fun SignUpInputFields(
-    state: SignUpState,
-    onEmailChange: (String) -> Unit,
-    onPasswordChange: (String) -> Unit,
-    onConfirmPasswordChange: (String) -> Unit,
-    onTogglePasswordVisibility: () -> Unit,
-    onToggleConfirmPasswordVisibility: () -> Unit
-) {
+private fun SignUpInputFields(state: SignUpState, events: SignUpEvents) {
     Column(
-        verticalArrangement = Arrangement.spacedBy(20.dp), modifier = Modifier.fillMaxWidth()
+        verticalArrangement = Arrangement.spacedBy(Spacing.XLarge),
+        modifier = Modifier.fillMaxWidth()
     ) {
-        EmailField(
-            value = state.email.value, onValueChange = onEmailChange
+        EmailTextField(
+            value = state.email.value,
+            onValueChange = events.onEmailChange
         )
-
-        PasswordField(
+        PasswordTextField(
             value = state.password.value,
-            onValueChange = onPasswordChange,
-            showPassword = state.showPassword,
-            onToggleVisibility = onTogglePasswordVisibility
+            isVisible = state.showPassword,
+            label = stringResource(R.string.field_label_password),
+            placeholder = stringResource(R.string.field_placeholder_password),
+            onValueChange = events.onPasswordChange,
+            onToggleVisibility = events.onTogglePasswordVisibility
         )
-
-        ConfirmPasswordField(
+        PasswordTextField(
             value = state.confirm.value,
-            onValueChange = onConfirmPasswordChange,
-            showPassword = state.showConfirm,
-            onToggleVisibility = onToggleConfirmPasswordVisibility
+            isVisible = state.showConfirm,
+            label = stringResource(R.string.field_label_password_confirm),
+            placeholder = stringResource(R.string.field_placeholder_password_confirm),
+            onValueChange = events.onConfirmPasswordChange,
+            onToggleVisibility = events.onToggleConfirmPasswordVisibility
         )
     }
 }
 
 @Composable
-private fun EmailField(
-    value: String, onValueChange: (String) -> Unit
-) {
-    StandardTextField(
-        value = value,
-        placeholder = stringResource(R.string.field_placeholder_email),
-        label = stringResource(R.string.field_label_email),
-        onValueChange = onValueChange,
-        enabled = true,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-        trailingIcon = {
-            Icon(
-                imageVector = Icons.Default.Email,
-                contentDescription = null,
-                modifier = Modifier.size(24.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        },
-        visualTransformation = VisualTransformation.None,
-        isError = false,
-        modifier = Modifier.fillMaxWidth()
-    )
-}
-
-@Composable
-private fun PasswordField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    showPassword: Boolean,
-    onToggleVisibility: () -> Unit
-) {
-    StandardTextField(
-        value = value,
-        placeholder = stringResource(R.string.field_placeholder_password),
-        label = stringResource(R.string.field_label_password),
-        onValueChange = onValueChange,
-        enabled = true,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-        trailingIcon = {
-            IconButton(
-                onClick = onToggleVisibility, enabled = true
-            ) {
-                Icon(
-                    modifier = Modifier.size(24.dp),
-                    imageVector = if (showPassword) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        },
-        visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
-        isError = false,
-        modifier = Modifier.fillMaxWidth()
-    )
-}
-
-@Composable
-private fun ConfirmPasswordField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    showPassword: Boolean,
-    onToggleVisibility: () -> Unit
-) {
-    StandardTextField(
-        value = value,
-        placeholder = stringResource(R.string.field_placeholder_password_confirm),
-        label = stringResource(R.string.field_label_password_confirm),
-        onValueChange = onValueChange,
-        enabled = true,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-        trailingIcon = {
-            IconButton(
-                onClick = onToggleVisibility, enabled = true
-            ) {
-                Icon(
-                    modifier = Modifier.size(24.dp),
-                    imageVector = if (showPassword) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        },
-        visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
-        isError = false,
-        modifier = Modifier.fillMaxWidth()
-    )
-}
-
-@Composable
-private fun SignInLink(
-    onSignInClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End
-    ) {
-        StandardTextButton(
-            text = stringResource(R.string.link_to_sign_in), onClick = onSignInClick, enabled = true
-        )
-    }
-}
-
-@Composable
-private fun SignUpButton(
-    enabled: Boolean, onClick: () -> Unit
-) {
-    StandardButton(
-        text = stringResource(R.string.button_register),
-        onClick = onClick,
-        enabled = enabled,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(50.dp)
-    )
-}
-
-@Composable
-private fun DividerWithText() {
+private fun SignInLink(onClick: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp)
+        horizontalArrangement = Arrangement.End
     ) {
-        HorizontalDivider(
-            modifier = Modifier.weight(1f),
-            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
-        )
-        Text(
-            text = stringResource(R.string.divider_text),
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        HorizontalDivider(
-            modifier = Modifier.weight(1f),
-            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
-        )
-    }
-}
-
-@Composable
-private fun GoogleButton(
-    enabled: Boolean,
-    onClick: () -> Unit
-) {
-    Box(modifier = Modifier
-        .fillMaxWidth()
-        .height(50.dp)
-    ) {
-        StandardOutlinedButton(
-            text = stringResource(R.string.button_social_register),
-            onClick = onClick,
-            enabled = enabled,
-            modifier = Modifier.fillMaxSize()
-        )
-        Row(
-            modifier = Modifier
-                .fillMaxSize(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Start
-        ) {
-            Icon(
-                painter = painterResource(id = R.drawable.google_icon),
-                contentDescription = null,
-                modifier = Modifier.size(50.dp),
-                tint = Color.Unspecified
-            )
-        }
+        StandardTextButton(text = stringResource(R.string.link_to_sign_in), onClick = onClick)
     }
 }
 
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
-private fun SignInScreenPreview() {
+private fun SignUpScreenPreview() {
     DemoTheme {
         SignUpScreenContent(
             state = SignUpState(),
-            snackbarHostState = SnackbarHostState(),
-            snackbarType = SnackbarType.DEFAULT,
-            onEmailChange = {},
-            onPasswordChange = {},
-            onConfirmPasswordChange = {},
-            onTogglePasswordVisibility = {},
-            onToggleConfirmPasswordVisibility = {},
-            onSignUpWithEmail = {},
-            onSignUpWithGoogle = {},
-            onSignInClick = {})
+            snackbar = SnackbarConfig(SnackbarHostState(), SnackbarType.DEFAULT),
+            events = SignUpEvents(
+                onEmailChange = {},
+                onPasswordChange = {},
+                onConfirmPasswordChange = {},
+                onTogglePasswordVisibility = {},
+                onToggleConfirmPasswordVisibility = {},
+                onSignUpWithEmail = {},
+                onSignUpWithGoogle = {},
+                onSignInClick = {}
+            )
+        )
     }
 }

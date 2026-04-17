@@ -7,10 +7,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.unit.dp
+import com.visura.ui.presenter.theme.CornerRadius
 
 @Composable
 fun StandardTextField(
@@ -21,25 +19,22 @@ fun StandardTextField(
     placeholder: String? = null,
     enabled: Boolean = true,
     trailingIcon: @Composable (() -> Unit)? = null,
-    visualTransformation: VisualTransformation? = null,
+    visualTransformation: VisualTransformation = VisualTransformation.None,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     isError: Boolean = false,
 ) {
-    if (visualTransformation != null) {
-        OutlinedTextField(
-            value = value,
-            onValueChange = onValueChange,
-            label = { label?.let { Text(it) } },
-            placeholder = { placeholder?.let { Text(it) } },
-            modifier = modifier.fillMaxWidth(),
-            keyboardOptions = keyboardOptions,
-            enabled = enabled,
-            trailingIcon = trailingIcon,
-            visualTransformation = visualTransformation,
-            textStyle = TextStyle(color = Color.Gray),
-            shape = RoundedCornerShape(12.dp),
-            singleLine = true,
-            isError = isError
-        )
-    }
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { label?.let { Text(it) } },
+        placeholder = { placeholder?.let { Text(it) } },
+        modifier = modifier.fillMaxWidth(),
+        keyboardOptions = keyboardOptions,
+        enabled = enabled,
+        trailingIcon = trailingIcon,
+        visualTransformation = visualTransformation,
+        shape = RoundedCornerShape(CornerRadius.Medium),
+        singleLine = true,
+        isError = isError
+    )
 }

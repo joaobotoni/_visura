@@ -1,4 +1,3 @@
-
 // app/build.gradle.kts
 
 plugins {
@@ -7,9 +6,9 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
 
-    id("com.google.devtools.ksp")
-    id("com.google.dagger.hilt.android")
-    id("com.google.gms.google-services")
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.gms)
+    alias(libs.plugins.hilt)
     kotlin("plugin.serialization") version "2.0.21"
 
 }
