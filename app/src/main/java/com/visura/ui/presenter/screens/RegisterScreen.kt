@@ -172,9 +172,7 @@ fun Register(viewModel: RegisterViewModel = hiltViewModel()) {
 }
 
 private fun formState(state: RegisterState, showLocationSheet: Boolean) = RegisterCurrentState(
-    isReadyToSubmit = state.selectedPropertyCategory != null
-            && state.selectedPropertyType != null
-            && state.selectedAddress != null,
+    isReadyToSubmit = state.selectedPropertyCategory != null && state.selectedPropertyType != null && state.selectedAddress != null,
     canAddLocation = state.selectedPropertyType != null && state.selectedPropertyCategory != null,
     currentStep = if (state.selectedAddress != null) STEP_WITH_ADDRESS else STEP_INITIAL,
     showLocationSheet = showLocationSheet
@@ -417,8 +415,7 @@ private fun LocationSection(
         },
         modifier = Modifier
             .fillMaxWidth()
-            .animateContentSize(tween(220, easing = FastOutSlowInEasing)),
-        label = "location_section"
+            .animateContentSize(tween(220, easing = FastOutSlowInEasing))
     ) { targetAddress ->
         if (targetAddress == null) {
             EmptyLocationCard(enabled = canAddLocation, onClick = events.onLocationRequest)
@@ -908,7 +905,6 @@ private fun SearchResultsContent(state: RegisterState, onAddressSelected: (Addre
                 addresses = searchState.addresses,
                 onSelect = onAddressSelected
             )
-
             SearchResultState.Idle -> Spacer(modifier = Modifier.height(Spacing.XSmall))
         }
     }
