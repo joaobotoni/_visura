@@ -158,6 +158,7 @@ private fun CategoryIcon(category: PropertyCategory) {
     val icon = when (category) {
         PropertyCategory.HOME -> Icons.Outlined.Home
         PropertyCategory.APARTMENT -> Icons.Outlined.Apartment
+        else -> Icons.Outlined.Home
     }
 
     Box(
@@ -270,21 +271,6 @@ private fun AddressInfoRow(
             overflow = TextOverflow.Ellipsis
         )
     }
-}
-
-private fun Address.toPrimaryString(): String {
-    val base = listOf(street, number).filter { it.isNotBlank() }.joinToString(", ")
-    return listOf(base, neighborhood)
-        .filter { it.isNotBlank() }
-        .joinToString(" - ")
-        .ifEmpty { "Endereço não informado" }
-}
-
-private fun Address.toCityStateString(): String? {
-    return listOf(city, state)
-        .filter { it.isNotBlank() }
-        .joinToString(" — ")
-        .takeIf { it.isNotBlank() }
 }
 
 private fun Instant.toFormattedString(): String = dateFormatter.format(this)

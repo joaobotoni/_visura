@@ -9,9 +9,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddCircle
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.AddCircleOutline
+import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarDefaults
@@ -26,7 +30,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -38,12 +41,8 @@ import kotlinx.serialization.Serializable
 
 @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
 @Composable
-fun MainScreen(
-    modifier: Modifier = Modifier,
-) {
-    Box(
-        modifier = modifier.fillMaxSize()
-    ) {
+fun MainScreen(modifier: Modifier = Modifier) {
+    Box(modifier = modifier.fillMaxSize()) {
         Menu(modifier = modifier)
     }
 }
@@ -56,6 +55,14 @@ object Home
 @SerialName("Register")
 object Register
 
+@Serializable
+@SerialName("Pending")
+object Pending
+
+@Serializable
+@SerialName("Inspected")
+object Inspected
+
 enum class Destination(
     val route: Any,
     val label: String,
@@ -64,15 +71,27 @@ enum class Destination(
 ) {
     HOME(
         route = Home,
-        label = "Home",
+        label = "Início",
         icon = Icons.Filled.Home,
         unselectedIcon = Icons.Outlined.Home
     ),
     REGISTER(
         route = Register,
-        label = "Register",
+        label = "Nova Vistoria",
         icon = Icons.Filled.AddCircle,
         unselectedIcon = Icons.Outlined.AddCircleOutline
+    ),
+    PENDING(
+        route = Pending,
+        label = "Pendentes",
+        icon = Icons.Filled.Warning,
+        unselectedIcon = Icons.Outlined.Warning
+    ),
+    INSPECTED(
+        route = Inspected,
+        label = "Vistoriados",
+        icon = Icons.Filled.CheckCircle,
+        unselectedIcon = Icons.Outlined.CheckCircle
     )
 }
 
@@ -97,14 +116,13 @@ fun Menu(modifier: Modifier = Modifier) {
 
     val graph = navController.createGraph(startDestination = startDestination.route) {
         composable<Home> { Home() }
-        composable<Register>  { Register() }
+        composable<Register> { Register() }
+        composable<Pending> { PendingScreen() }
+        composable<Inspected> { InspectedScreen() }
     }
 
     Scaffold(
         modifier = modifier,
-        topBar = {
-            // TODO()
-        },
         bottomBar = {
             NavigationBar(
                 modifier = Modifier.fillMaxWidth(),
@@ -126,9 +144,7 @@ fun Menu(modifier: Modifier = Modifier) {
                                 contentDescription = null
                             )
                         },
-                        label = {
-                            Text(if (destination.route == Home) "Home" else "Nova Vistoria");
-                        }
+                        label = { Text(destination.label) }
                     )
                 }
             }
@@ -142,11 +158,4 @@ fun Menu(modifier: Modifier = Modifier) {
                 .fillMaxSize()
         )
     }
-}
-
-@Composable
-@RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
-@Preview(showBackground = true, showSystemUi = true)
-fun MainScreenPreview() {
-    MainScreen()
 }

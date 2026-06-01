@@ -117,7 +117,7 @@ private fun EmptyState() {
         EmptyStateIcon()
         Spacer(modifier = Modifier.height(Spacing.Huge))
         Text(
-            text = "Nenhuma vistoria registrada",
+            text = "Nenhum imóvel cadastrado", //ALTERADO
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface,
@@ -125,7 +125,7 @@ private fun EmptyState() {
         )
         Spacer(modifier = Modifier.height(Spacing.Medium))
         Text(
-            text = "Suas inspeções aparecerão aqui. Acesse a aba de nova vistoria para começar.",
+            text = "Os imóveis cadastrados aparecerão aqui. Acesse Nova Vistoria para começar.", //ALTERADO
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center

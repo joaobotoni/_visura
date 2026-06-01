@@ -66,6 +66,8 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SearchBar
 import androidx.compose.material3.SearchBarDefaults
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -74,6 +76,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -90,7 +93,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
@@ -103,6 +106,8 @@ import com.visura.domain.vo.property.PropertyType
 import com.visura.ui.presenter.elements.badge.StandardSelectionBadge
 import com.visura.ui.presenter.elements.button.StandardTextButton
 import com.visura.ui.presenter.elements.card.StandardCard
+import com.visura.ui.presenter.elements.snackbar.SnackbarType
+import com.visura.ui.presenter.elements.snackbar.StandardSnackbar
 import com.visura.ui.presenter.theme.Alpha
 import com.visura.ui.presenter.theme.ComponentSize
 import com.visura.ui.presenter.theme.CornerRadius
@@ -110,6 +115,7 @@ import com.visura.ui.presenter.theme.Elevation
 import com.visura.ui.presenter.theme.IconSize
 import com.visura.ui.presenter.theme.PulseAnimation
 import com.visura.ui.presenter.theme.Spacing
+import com.visura.ui.viewmodels.RegisterEvent
 import com.visura.ui.viewmodels.RegisterState
 import com.visura.ui.viewmodels.RegisterViewModel
 import kotlinx.coroutines.launch
@@ -136,7 +142,8 @@ data class RegisterCurrentState(
     val isReadyToSubmit: Boolean,
     val canAddLocation: Boolean,
     val currentStep: Int,
-    val showLocationSheet: Boolean
+    val showLocationSheet: Boolean,
+    val isLoading: Boolean
 )
 
 data class SelectionData<T>(
@@ -158,6 +165,37 @@ data class SelectionCallbacks<T>(
 fun Register(viewModel: RegisterViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsState()
     var showLocationSheet by rememberSaveable { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    var snackbarType by remember { mutableStateOf(SnackbarType.DEFAULT) }
+
+    // ← CORRIGIDO: trata SavedSuccessfully, PropertyError e LocationError
+    LaunchedEffect(Unit) {
+        viewModel.event.collect { event ->
+            when (event) {
+                is RegisterEvent.SavedSuccessfully -> {
+                    snackbarType = SnackbarType.SUCCESS
+                    snackbarHostState.showSnackbar(
+                        message = "Imóvel cadastrado com sucesso!",
+                        duration = SnackbarDuration.Short
+                    )
+                }
+                is RegisterEvent.PropertyError -> {
+                    snackbarType = SnackbarType.ERROR
+                    snackbarHostState.showSnackbar(
+                        message = event.exception.message ?: "Erro ao cadastrar imóvel",
+                        duration = SnackbarDuration.Short
+                    )
+                }
+                is RegisterEvent.LocationError -> {
+                    snackbarType = SnackbarType.ERROR
+                    snackbarHostState.showSnackbar(
+                        message = event.exception.message ?: "Erro de localização",
+                        duration = SnackbarDuration.Short
+                    )
+                }
+            }
+        }
+    }
 
     LocationPermissionHandler(onGranted = viewModel::fetchCurrentAddress)
     CameraPermissionHandler(onGranted = {})
@@ -165,17 +203,24 @@ fun Register(viewModel: RegisterViewModel = hiltViewModel()) {
     RegisterScaffold(
         state = state,
         currentState = formState(state, showLocationSheet),
+        snackbarHostState = snackbarHostState,
+        snackbarType = snackbarType,
         events = formEvents(
             viewModel = viewModel,
-            setLocationSheetVisible = { showLocationSheet = it })
+            setLocationSheetVisible = { showLocationSheet = it }
+        )
     )
 }
 
 private fun formState(state: RegisterState, showLocationSheet: Boolean) = RegisterCurrentState(
-    isReadyToSubmit = state.selectedPropertyCategory != null && state.selectedPropertyType != null && state.selectedAddress != null,
+    isReadyToSubmit = state.selectedPropertyCategory != null
+            && state.selectedPropertyType != null
+            && state.selectedAddress != null
+            && !state.isLoading,
     canAddLocation = state.selectedPropertyType != null && state.selectedPropertyCategory != null,
     currentStep = if (state.selectedAddress != null) STEP_WITH_ADDRESS else STEP_INITIAL,
-    showLocationSheet = showLocationSheet
+    showLocationSheet = showLocationSheet,
+    isLoading = state.isLoading
 )
 
 private fun formEvents(
@@ -192,7 +237,7 @@ private fun formEvents(
     },
     onAddressRemoved = { viewModel.setAddress(null) },
     onDismissLocationSheet = { setLocationSheetVisible(false) },
-    onSubmit = viewModel::validateAndFinish,
+    onSubmit = viewModel::saveProperty, // ← CORRIGIDO: era validateAndFinish
     onLocationGranted = viewModel::fetchCurrentAddress,
     onCameraGranted = {}
 )
@@ -202,11 +247,20 @@ private fun formEvents(
 private fun RegisterScaffold(
     state: RegisterState,
     currentState: RegisterCurrentState,
+    snackbarHostState: SnackbarHostState,
+    snackbarType: SnackbarType,
     events: RegisterEvents
 ) {
     Scaffold(
+        snackbarHost = {
+            StandardSnackbar(hostState = snackbarHostState, type = snackbarType)
+        },
         bottomBar = {
-            SubmitButton(visible = currentState.isReadyToSubmit, onClick = events.onSubmit)
+            SubmitButton(
+                visible = currentState.isReadyToSubmit,
+                isLoading = currentState.isLoading,
+                onClick = events.onSubmit
+            )
         }
     ) { paddingValues ->
         Box(modifier = Modifier.padding(paddingValues)) {
@@ -278,6 +332,7 @@ private fun RegisterForm(
 private fun categoryIcon(category: PropertyCategory): ImageVector = when (category) {
     PropertyCategory.HOME -> Icons.Outlined.Home
     PropertyCategory.APARTMENT -> Icons.Outlined.Apartment
+    else -> Icons.Outlined.Home
 }
 
 @Composable
@@ -407,10 +462,7 @@ private fun LocationSection(
         targetState = address,
         transitionSpec = {
             (fadeIn(tween(220, easing = FastOutSlowInEasing)) +
-                    scaleIn(
-                        tween(220, easing = FastOutSlowInEasing),
-                        initialScale = 0.96f
-                    )) togetherWith
+                    scaleIn(tween(220, easing = FastOutSlowInEasing), initialScale = 0.96f)) togetherWith
                     (fadeOut(tween(150)) + scaleOut(tween(150), targetScale = 0.96f))
         },
         modifier = Modifier
@@ -648,7 +700,7 @@ private fun AddressActionButton(icon: ImageVector, tint: Color, onClick: () -> U
 }
 
 @Composable
-private fun SubmitButton(visible: Boolean, onClick: () -> Unit) {
+private fun SubmitButton(visible: Boolean, isLoading: Boolean, onClick: () -> Unit) {
     AnimatedVisibility(
         visible = visible,
         enter = expandVertically(tween(220, easing = FastOutSlowInEasing)) + fadeIn(tween(220, easing = FastOutSlowInEasing)),
@@ -656,6 +708,7 @@ private fun SubmitButton(visible: Boolean, onClick: () -> Unit) {
     ) {
         Button(
             onClick = onClick,
+            enabled = !isLoading,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(Spacing.Large),
@@ -668,19 +721,29 @@ private fun SubmitButton(visible: Boolean, onClick: () -> Unit) {
                     .fillMaxWidth()
                     .padding(vertical = Spacing.Large, horizontal = Spacing.Large)
             ) {
-                Text(
-                    text = "Finalizar Cadastro",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.align(Alignment.Center)
-                )
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                    contentDescription = null,
-                    modifier = Modifier
-                        .size(IconSize.Default)
-                        .align(Alignment.CenterEnd)
-                )
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier
+                            .size(IconSize.Default)
+                            .align(Alignment.Center),
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text(
+                        text = "Finalizar Cadastro",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.align(Alignment.Center)
+                    )
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(IconSize.Default)
+                            .align(Alignment.CenterEnd)
+                    )
+                }
             }
         }
     }
@@ -996,89 +1059,48 @@ private fun AddressResultsList(addresses: List<Address>, onSelect: (Address) -> 
             .verticalScroll(rememberScrollState())
             .padding(vertical = Spacing.Medium)
     ) {
-        addresses.forEachIndexed { index, address ->
-            AddressResultItem(
-                address = address,
-                isLast = index == addresses.lastIndex,
-                onClick = { onSelect(address) }
-            )
-        }
-    }
-}
-
-@Composable
-private fun AddressResultItem(address: Address, isLast: Boolean, onClick: () -> Unit) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onClick)
-                .padding(horizontal = Spacing.XXLarge, vertical = Spacing.Large),
-            horizontalArrangement = Arrangement.spacedBy(Spacing.Large),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            AddressResultIcon()
-            AddressResultDetails(modifier = Modifier.weight(1f), address = address)
-        }
-        if (!isLast) {
+        addresses.forEach { address ->
+            AddressResultItem(address = address, onSelect = onSelect)
             HorizontalDivider(
-                modifier = Modifier.padding(start = 80.dp, end = Spacing.XXLarge),
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = Alpha.XXLow)
+                modifier = Modifier.padding(horizontal = Spacing.XXLarge),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = Alpha.Moderate)
             )
         }
     }
 }
 
 @Composable
-private fun AddressResultIcon() {
-    Box(
+private fun AddressResultItem(address: Address, onSelect: (Address) -> Unit) {
+    Row(
         modifier = Modifier
-            .size(ComponentSize.Small)
-            .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.surfaceContainerHighest),
-        contentAlignment = Alignment.Center
+            .fillMaxWidth()
+            .clickable { onSelect(address) }
+            .padding(horizontal = Spacing.XXLarge, vertical = Spacing.Large),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.Large),
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
             imageVector = Icons.Outlined.LocationOn,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(IconSize.Default)
         )
+        Column(verticalArrangement = Arrangement.spacedBy(Spacing.XXSmall)) {
+            Text(
+                text = address.toPrimaryFormat(),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = address.toSecondaryFormat(),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }
-
-@Composable
-private fun AddressResultDetails(modifier: Modifier, address: Address) {
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(Spacing.XSmall)) {
-        Text(
-            text = address.toPrimaryFormat(),
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = FontWeight.Medium,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        Text(
-            text = address.toSecondaryFormat(),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
-}
-
-private fun Address.toPrimaryFormat(): String = when {
-    street.isNotBlank() && neighborhood.isNotBlank() -> "$street, $neighborhood"
-    street.isNotBlank() -> street
-    neighborhood.isNotBlank() -> neighborhood
-    city.isNotBlank() -> city
-    else -> "Endereço"
-}
-
-private fun Address.toSecondaryFormat(): String = buildList {
-    if (number.isNotBlank()) add("N° $number")
-    if (postalCode.isNotBlank()) add("CEP $postalCode")
-    if (city.isNotBlank()) add(city)
-    if (state.isNotBlank()) add(state)
-}.joinToString(", ")

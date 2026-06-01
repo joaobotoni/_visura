@@ -19,7 +19,7 @@ class DefaultLocationRepository @Inject constructor(
     }
 
     override suspend fun fetchAddressByName(query: String): List<Address> {
-        val rawData = locationDatasource.fetchCurrentAddressByName(query)
+        val rawData = locationDatasource.fetchAddressByName(query) // CORRIGIDO
         return rawData.mapNotNull { it.toDomain() }
     }
 

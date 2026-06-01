@@ -65,24 +65,19 @@ class LocationLocalDataSource @Inject constructor(
         return addresses
     }
 
-    private suspend fun fetchAddressByName(query: String): List<Address> {
+    suspend fun fetchAddressByName(query: String): List<Address> {
         return try {
             suspendCoroutine { continuation ->
                 geocoder.getFromLocationName(query, 5) { addresses ->
                     continuation.resume(addresses)
                 }
+            }.also { addresses ->
+                if (addresses.isEmpty()) throw LocationException.AddressNotFound()
             }
+        } catch (e: LocationException) {
+            throw e
         } catch (e: Exception) {
             throw LocationException.GeocodingFailed(cause = e)
         }
-    }
-
-    suspend fun fetchCurrentAddressByName(query: String): List<Address> {
-        val addresses = fetchAddressByName(query)
-
-        if (addresses.isEmpty()) {
-            throw LocationException.AddressNotFound()
-        }
-        return addresses
     }
 }

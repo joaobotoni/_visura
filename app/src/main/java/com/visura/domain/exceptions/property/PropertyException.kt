@@ -4,6 +4,7 @@ sealed class PropertyException(
     message: String,
     cause: Throwable? = null
 ) : Exception(message, cause) {
+
     class ValidationError(
         message: String?,
         cause: Throwable? = null
@@ -20,4 +21,16 @@ sealed class PropertyException(
     class UnexpectedError(
         cause: Throwable
     ) : PropertyException("Ocorreu um erro inesperado", cause)
+
+    class NotFound(
+        cause: Throwable? = null
+    ) : PropertyException("Imóvel não encontrado", cause)
+
+    class AddressRequired(
+        cause: Throwable? = null
+    ) : PropertyException("O endereço do imóvel é obrigatório", cause)
+
+    class NetworkError(
+        cause: Throwable? = null
+    ) : PropertyException("Erro de rede ao processar imóvel", cause)
 }

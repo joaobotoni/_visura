@@ -8,11 +8,17 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
-
+import com.google.firebase.firestore.FirebaseFirestore
 
 @Module
 @InstallIn(SingletonComponent::class)
 object FirebaseModule {
+
+    @Provides //ADICIONADO
+    @Singleton
+    fun provideFirebaseFirestore(): FirebaseFirestore {
+        return FirebaseFirestore.getInstance()
+    }
     @Provides
     @Singleton
     fun provideFirebaseAuth(): FirebaseAuth {

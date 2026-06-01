@@ -6,10 +6,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.visura.domain.exceptions.location.LocationException
 import com.visura.domain.exceptions.property.PropertyException
+import com.visura.domain.usecase.location.LocationUseCase
+import com.visura.domain.usecase.property.PropertyUseCase
 import com.visura.domain.vo.location.Address
+import com.visura.domain.vo.property.Property
 import com.visura.domain.vo.property.PropertyCategory
 import com.visura.domain.vo.property.PropertyType
-import com.visura.domain.usecase.location.LocationUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,6 +19,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.Instant
+import java.util.UUID
 import javax.inject.Inject
 
 data class RegisterState(
@@ -26,18 +30,20 @@ data class RegisterState(
     val selectedPropertyType: PropertyType? = null,
     val searchQuery: String = "",
     val isSearching: Boolean = false,
-    val isFetchingLocation: Boolean = false
+    val isFetchingLocation: Boolean = false,
+    val isLoading: Boolean = false
 )
 
 sealed interface RegisterEvent {
-    data object ValidationSuccess : RegisterEvent
+    data object SavedSuccessfully : RegisterEvent
     data class LocationError(val exception: LocationException) : RegisterEvent
     data class PropertyError(val exception: PropertyException) : RegisterEvent
 }
 
 @HiltViewModel
 class RegisterViewModel @Inject constructor(
-    private val locationUseCase: LocationUseCase
+    private val locationUseCase: LocationUseCase,
+    private val propertyUseCase: PropertyUseCase
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(RegisterState())
@@ -96,9 +102,41 @@ class RegisterViewModel @Inject constructor(
         }
     }
 
-    fun validateAndFinish() {
+    fun saveProperty() {
         viewModelScope.launch {
-            _event.send(performValidation())
+            _state.update { it.copy(isLoading = true) }
+            runCatching {
+                val property = Property(
+                    id = UUID.randomUUID(),
+                    type = _state.value.selectedPropertyType
+                        ?: throw PropertyException.PropertyTypeRequired(),
+                    category = _state.value.selectedPropertyCategory
+                        ?: throw PropertyException.CategoryRequired(),
+                    address = _state.value.selectedAddress
+                        ?: throw LocationException.ValidationError("Endereço não selecionado"),
+                    created = Instant.now()
+                )
+                propertyUseCase.save(property)
+            }.fold(
+                onSuccess = {
+                    resetForm()
+                    _event.send(RegisterEvent.SavedSuccessfully)
+                },
+                onFailure = { _event.send(RegisterEvent.PropertyError(it.toPropertyException())) }
+            )
+            _state.update { it.copy(isLoading = false) }
+        }
+    }
+
+    private fun resetForm() {
+        _state.update {
+            it.copy(
+                selectedAddress = null,
+                selectedPropertyType = null,
+                selectedPropertyCategory = null,
+                addresses = emptySet(),
+                searchQuery = ""
+            )
         }
     }
 
@@ -132,21 +170,6 @@ class RegisterViewModel @Inject constructor(
                 _event.send(RegisterEvent.LocationError(exception.toLocationException()))
             }
         )
-    }
-
-    private fun performValidation(): RegisterEvent =
-        validateInputs().fold(
-            onSuccess = { RegisterEvent.ValidationSuccess },
-            onFailure = { RegisterEvent.PropertyError(it.toPropertyException()) }
-        )
-
-    private fun validateInputs(): Result<Unit> = runCatching {
-        _state.value.selectedPropertyCategory
-            ?: throw PropertyException.CategoryRequired()
-        _state.value.selectedPropertyType
-            ?: throw PropertyException.PropertyTypeRequired()
-        _state.value.selectedAddress
-            ?: throw LocationException.ValidationError("Endereço não selecionado")
     }
 
     private fun Throwable.toLocationException(): LocationException = when (this) {
