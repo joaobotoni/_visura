@@ -9,4 +9,11 @@ object Routes {
     const val CREATE_ACCOUNT_DOCS = "create_account_docs"
     const val GOOGLE_ACCOUNT_PICKER = "google_account_picker"
     const val HOME = "home"
+    const val IMOVEIS = "imoveis"
+    const val IMOVEL_DETALHE = "imovel_detalhe/{imovelId}"
+    const val NOVO_IMOVEL = "novo_imovel"
+    const val NOVO_IMOVEL_TIPO = "novo_imovel_tipo"
+    const val NOVA_VISTORIA = "nova_vistoria"
+
+    fun imovelDetalhe(imovelId: String) = "imovel_detalhe/$imovelId"
 }

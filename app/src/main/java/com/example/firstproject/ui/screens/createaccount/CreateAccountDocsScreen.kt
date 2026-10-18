@@ -37,11 +37,14 @@ fun CreateAccountDocsScreen(
     var nomeFantasia by remember { mutableStateOf("") }
     var cnpj by remember { mutableStateOf("") }
 
+    val cpfCompleto = cpf.count { it.isDigit() } == 11
+    val cnpjCompleto = cnpj.count { it.isDigit() } == 14
+
     val podeConcluir = if (tipoPessoa == TipoPessoa.FISICA) {
-        nomeCompleto.isNotBlank() && cpf.isNotBlank()
+        nomeCompleto.isNotBlank() && cpfCompleto
     } else {
-        nomeCompleto.isNotBlank() && cpf.isNotBlank() &&
-                razaoSocial.isNotBlank() && nomeFantasia.isNotBlank() && cnpj.isNotBlank()
+        nomeCompleto.isNotBlank() && cpfCompleto &&
+                razaoSocial.isNotBlank() && nomeFantasia.isNotBlank() && cnpjCompleto
     }
 
     Column(
@@ -108,7 +111,7 @@ fun CreateAccountDocsScreen(
             onValueChange = { if (it.length <= 14) cpf = it },
             icon = Icons.Filled.Badge,
             keyboardType = KeyboardType.Number,
-            showCheck = cpf.length >= 11
+            showCheck = cpfCompleto
         )
 
         if (tipoPessoa == TipoPessoa.JURIDICA) {
@@ -140,7 +143,7 @@ fun CreateAccountDocsScreen(
                 onValueChange = { if (it.length <= 18) cnpj = it },
                 icon = Icons.Filled.Badge,
                 keyboardType = KeyboardType.Number,
-                showCheck = cnpj.length >= 14
+                showCheck = cnpjCompleto
             )
         }
 

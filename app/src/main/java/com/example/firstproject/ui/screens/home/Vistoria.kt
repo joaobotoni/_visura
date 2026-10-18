@@ -3,6 +3,7 @@ package com.example.firstproject.ui.screens.home
 enum class StatusVistoria { EM_ANDAMENTO, CONCLUIDA }
 
 data class Vistoria(
+    val imovelId: String,
     val titulo: String,
     val endereco: String,
     val status: StatusVistoria,
@@ -14,8 +15,10 @@ data class Vistoria(
 
 // Lista de exemplo só para visualização do layout — será substituída
 // pelos dados reais vindos do banco/backend futuramente.
+// O imovelId aponta para o imóvel correspondente em imoveisDeExemplo.
 val vistoriasExemplo = listOf(
     Vistoria(
+        imovelId = "1",
         titulo = "Edifício Aurora, apto 62",
         endereco = "Rua das Palmeiras, 210 — Curitiba/PR",
         status = StatusVistoria.EM_ANDAMENTO,
@@ -25,6 +28,7 @@ val vistoriasExemplo = listOf(
         responsavel = "Carla Souza"
     ),
     Vistoria(
+        imovelId = "2",
         titulo = "Casa Jardim das Acácias",
         endereco = "Av. Brasil, 1450 — Curitiba/PR",
         status = StatusVistoria.CONCLUIDA,
@@ -34,6 +38,7 @@ val vistoriasExemplo = listOf(
         responsavel = "Beatriz Lima"
     ),
     Vistoria(
+        imovelId = "3",
         titulo = "Sala Comercial 4B",
         endereco = "Centro Empresarial Norte — Curitiba/PR",
         status = StatusVistoria.CONCLUIDA,

@@ -1,7 +1,7 @@
 package com.example.firstproject.ui.screens.home
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -23,18 +23,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.firstproject.ui.theme.BorderGray
+import com.example.firstproject.ui.theme.LightBlueBg
 import com.example.firstproject.ui.theme.NavyBlue
+import com.example.firstproject.ui.theme.StatusGreenBg
+import com.example.firstproject.ui.theme.StatusGreenText
+import com.example.firstproject.ui.theme.StatusOrangeBg
+import com.example.firstproject.ui.theme.StatusOrangeText
 import com.example.firstproject.ui.theme.TextGray
 import java.util.Calendar
-
-private val LightBlueBg = Color(0xFFEAF0FB)
-private val StatusOrangeBg = Color(0xFFFDEBD8)
-private val StatusOrangeText = Color(0xFFB86A1E)
-private val StatusGreenBg = Color(0xFFE1F3E4)
-private val StatusGreenText = Color(0xFF2E7D32)
-
-private fun Modifier.cardBorder() = this.border(1.dp, BorderGray, RoundedCornerShape(16.dp))
 
 private fun saudacaoPorHorario(): String {
     val hora = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
@@ -48,12 +44,18 @@ private fun saudacaoPorHorario(): String {
 @Composable
 fun HomeScreen(
     nomeUsuario: String = "Marcos Andrade",
+    email: String = "marcos.andrade@vistoriapro.com",
+    cpf: String = "385.201.740-06",
+    cnpj: String = "28.114.902/0001-45",
     vistorias: List<Vistoria> = vistoriasExemplo,
-    onNovaVistoriaClick: () -> Unit = {}
+    onNovoImovelClick: () -> Unit = {},
+    onVistoriaClick: (Vistoria) -> Unit = {},
+    onLogoutClick: () -> Unit = {}
 ) {
     var abaSelecionada by remember { mutableStateOf(0) } // 0 = Home, 1 = Perfil
 
     Scaffold(
+        containerColor = Color.White,
         bottomBar = {
             NavigationBar(containerColor = Color.White) {
                 NavigationBarItem(
@@ -83,13 +85,13 @@ fun HomeScreen(
         floatingActionButton = {
             if (abaSelecionada == 0) {
                 ExtendedFloatingActionButton(
-                    onClick = onNovaVistoriaClick,
+                    onClick = onNovoImovelClick,
                     containerColor = NavyBlue,
                     contentColor = Color.White
                 ) {
                     Icon(Icons.Filled.Add, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Nova vistoria", fontWeight = FontWeight.Bold)
+                    Text("Novo imóvel", fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -98,9 +100,19 @@ fun HomeScreen(
             0 -> HomeContent(
                 nomeUsuario = nomeUsuario,
                 vistorias = vistorias,
-                modifier = Modifier.padding(padding)
+                modifier = Modifier.padding(padding),
+                onAvatarClick = { abaSelecionada = 1 },
+                onVistoriaClick = onVistoriaClick
             )
-            else -> PerfilPlaceholder(modifier = Modifier.padding(padding))
+            else -> PerfilContent(
+                nomeUsuario = nomeUsuario,
+                email = email,
+                cpf = cpf,
+                cnpj = cnpj,
+                vistorias = vistorias,
+                modifier = Modifier.padding(padding),
+                onLogoutClick = onLogoutClick
+            )
         }
     }
 }
@@ -109,7 +121,9 @@ fun HomeScreen(
 private fun HomeContent(
     nomeUsuario: String,
     vistorias: List<Vistoria>,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onAvatarClick: () -> Unit = {},
+    onVistoriaClick: (Vistoria) -> Unit = {}
 ) {
     val totais = vistorias.size
     val emAndamento = vistorias.count { it.status == StatusVistoria.EM_ANDAMENTO }
@@ -121,85 +135,80 @@ private fun HomeContent(
         .take(2)
         .joinToString("") { it.first().uppercase() }
 
-    LazyColumn(
+    Column(
         modifier = modifier
             .fillMaxSize()
             .background(Color.White)
-            .safeDrawingPadding()
-            .padding(horizontal = 24.dp),
-        contentPadding = PaddingValues(top = 16.dp, bottom = 96.dp)
+            .padding(horizontal = 24.dp)
     ) {
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+        // Parte fixa
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(saudacaoPorHorario(), fontSize = 14.sp, color = TextGray)
+                Text(nomeUsuario, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            }
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(NavyBlue)
+                    .clickable { onAvatarClick() },
+                contentAlignment = Alignment.Center
             ) {
-                Column {
-                    Text(saudacaoPorHorario(), fontSize = 14.sp, color = TextGray)
-                    Text(nomeUsuario, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                }
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(NavyBlue),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(iniciais, color = Color.White, fontWeight = FontWeight.Bold)
-                }
+                Text(iniciais, color = Color.White, fontWeight = FontWeight.Bold)
             }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            Row(modifier = Modifier.fillMaxWidth()) {
-                StatCard("$totais", "Vistorias totais", Modifier.weight(1f))
-                Spacer(modifier = Modifier.width(8.dp))
-                StatCard("$emAndamento", "Em andamento", Modifier.weight(1f))
-                Spacer(modifier = Modifier.width(8.dp))
-                StatCard("$concluidas", "Concluídas", Modifier.weight(1f))
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Text("Suas vistorias", fontSize = 17.sp, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(12.dp))
         }
 
+        Spacer(modifier = Modifier.height(20.dp))
+
+        Row(modifier = Modifier.fillMaxWidth()) {
+            StatCard("$totais", "Vistorias totais", Modifier.weight(1f))
+            Spacer(modifier = Modifier.width(8.dp))
+            StatCard("$emAndamento", "Em andamento", Modifier.weight(1f))
+            Spacer(modifier = Modifier.width(8.dp))
+            StatCard("$concluidas", "Concluídas", Modifier.weight(1f))
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Text("Suas vistorias", fontSize = 17.sp, fontWeight = FontWeight.Bold)
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Parte que rola
         if (vistorias.isEmpty()) {
-            item {
-                Box(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("Nenhuma vistoria cadastrada ainda.", color = TextGray)
-                }
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("Nenhuma vistoria cadastrada ainda.", color = TextGray)
             }
         } else {
-            items(vistorias) { vistoria ->
-                VistoriaCard(vistoria)
-                Spacer(modifier = Modifier.height(12.dp))
+            LazyColumn(
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(bottom = 96.dp)
+            ) {
+                items(vistorias) { vistoria ->
+                    VistoriaCard(
+                        vistoria = vistoria,
+                        onClick = { onVistoriaClick(vistoria) }
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
             }
         }
     }
 }
 
 @Composable
-private fun StatCard(numero: String, label: String, modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(16.dp))
-            .background(LightBlueBg)
-            .padding(vertical = 14.dp, horizontal = 12.dp)
-    ) {
-        Text(numero, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = NavyBlue)
-        Spacer(modifier = Modifier.height(2.dp))
-        Text(label, fontSize = 12.sp, color = TextGray)
-    }
-}
-
-@Composable
-private fun VistoriaCard(vistoria: Vistoria) {
+private fun VistoriaCard(vistoria: Vistoria, onClick: () -> Unit) {
     val icone = when {
         vistoria.titulo.contains("Edifício", ignoreCase = true) ||
                 vistoria.titulo.contains("apto", ignoreCase = true) -> Icons.Filled.Apartment
@@ -214,6 +223,7 @@ private fun VistoriaCard(vistoria: Vistoria) {
             .clip(RoundedCornerShape(16.dp))
             .background(Color.White)
             .cardBorder()
+            .clickable { onClick() }
             .padding(16.dp)
     ) {
         Row(verticalAlignment = Alignment.Top) {
@@ -292,18 +302,5 @@ private fun StatusBadge(status: StatusVistoria) {
             .padding(horizontal = 10.dp, vertical = 4.dp)
     ) {
         Text(texto, fontSize = 11.sp, color = textColor, fontWeight = FontWeight.Medium)
-    }
-}
-
-@Composable
-private fun PerfilPlaceholder(modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(Color.White)
-            .safeDrawingPadding(),
-        contentAlignment = Alignment.Center
-    ) {
-        Text("Perfil (em construção)", color = TextGray)
     }
 }

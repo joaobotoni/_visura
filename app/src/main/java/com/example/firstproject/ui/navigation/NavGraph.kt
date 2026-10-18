@@ -2,17 +2,24 @@ package com.example.firstproject.ui.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.example.firstproject.ui.screens.createaccount.CreateAccountDocsScreen
 import com.example.firstproject.ui.screens.createaccount.CreateAccountInfoScreen
 import com.example.firstproject.ui.screens.forgotpassword.ForgotPasswordCodeScreen
 import com.example.firstproject.ui.screens.forgotpassword.ForgotPasswordEmailScreen
 import com.example.firstproject.ui.screens.forgotpassword.ForgotPasswordNewScreen
-import com.example.firstproject.ui.screens.login.LoginScreen
-import com.example.firstproject.ui.screens.home.HomeScreen
 import com.example.firstproject.ui.screens.googleauth.GoogleAccountPickerScreen
+import com.example.firstproject.ui.screens.home.HomeScreen
+import com.example.firstproject.ui.screens.imoveis.ImovelDetalheScreen
+import com.example.firstproject.ui.screens.imoveis.NovoImovelScreen
+import com.example.firstproject.ui.screens.imoveis.NovoImovelTipoScreen
+import com.example.firstproject.ui.screens.imoveis.imoveisDeExemplo
+import com.example.firstproject.ui.screens.login.LoginScreen
+import com.example.firstproject.ui.screens.vistoria.NovaVistoriaScreen
 
 @Composable
 fun FirstProjectNavGraph(
@@ -91,8 +98,65 @@ fun FirstProjectNavGraph(
 
         composable(Routes.HOME) {
             HomeScreen(
-                onNovaVistoriaClick = {
-                    // ainda sem tela de nova vistoria — próximo passo
+                // "+ Novo imóvel" sempre abre o cadastro
+                onNovoImovelClick = { navController.navigate(Routes.NOVO_IMOVEL) },
+                // Tocar numa vistoria abre as informações do imóvel dela
+                onVistoriaClick = { vistoria ->
+                    navController.navigate(Routes.imovelDetalhe(vistoria.imovelId))
+                },
+                onLogoutClick = {
+                    navController.navigate(Routes.LOGIN) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        composable(
+            route = Routes.IMOVEL_DETALHE,
+            arguments = listOf(navArgument("imovelId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val imovelId = backStackEntry.arguments?.getString("imovelId")
+            val imovel = imoveisDeExemplo.find { it.id == imovelId }
+
+            if (imovel != null) {
+                ImovelDetalheScreen(
+                    imovel = imovel,
+                    onBackClick = { navController.popBackStack() },
+                    onNovaVistoriaClick = { navController.navigate(Routes.NOVA_VISTORIA) }
+                )
+            }
+        }
+
+        // Cadastro do imóvel, etapa 1: endereço
+        composable(Routes.NOVO_IMOVEL) {
+            NovoImovelScreen(
+                onBackClick = { navController.popBackStack() },
+                onContinueClick = { _ ->
+                    navController.navigate(Routes.NOVO_IMOVEL_TIPO)
+                }
+            )
+        }
+
+        // Cadastro do imóvel, etapa 2: tipo e categoria
+        composable(Routes.NOVO_IMOVEL_TIPO) {
+            NovoImovelTipoScreen(
+                onBackClick = { navController.popBackStack() },
+                onContinueClick = { _, _ ->
+                    // Por enquanto abre os detalhes de um imóvel fixo de exemplo.
+                    // O popUpTo remove as telas do cadastro, então a seta de voltar leva para a Home.
+                    navController.navigate(Routes.imovelDetalhe(imoveisDeExemplo.first().id)) {
+                        popUpTo(Routes.HOME)
+                    }
+                }
+            )
+        }
+
+        composable(Routes.NOVA_VISTORIA) {
+            NovaVistoriaScreen(
+                onBackClick = { navController.popBackStack() },
+                onContinueClick = { _, _ ->
+                    // próxima etapa da vistoria — ainda não criada
                 }
             )
         }

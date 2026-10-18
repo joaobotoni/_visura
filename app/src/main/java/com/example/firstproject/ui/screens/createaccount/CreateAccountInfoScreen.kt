@@ -34,8 +34,10 @@ fun CreateAccountInfoScreen(
     var confirmarSenha by remember { mutableStateOf("") }
     var senhaVisivel by remember { mutableStateOf(false) }
 
-    val podeContinuar = nome.isNotBlank() && email.isNotBlank() &&
-            senha.isNotBlank() && senha == confirmarSenha
+    val emailValido = android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()
+
+    val podeContinuar = nome.isNotBlank() && emailValido &&
+            senha.length >= 6 && senha == confirmarSenha
 
     Column(
         modifier = Modifier
